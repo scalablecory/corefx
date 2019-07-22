@@ -10,6 +10,39 @@
   <ItemGroup>
     <Compile Include="Program.cs" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="seeds\seed_1.bin">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="seeds\seed_2.bin">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="seeds\seed_3.bin">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="seeds\seed_4.bin">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="seeds\seed_5.bin">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="seeds\seed_6.bin">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="seeds\seed_7.bin">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="seeds\seed_8.bin">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="seeds\seed_9.bin">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="seeds\seed_10.bin">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
   
   <!-- Do not reference these assemblies from the TargetingPack since we are building part of the source code for tests. -->
   <ItemGroup>
@@ -62,6 +95,8 @@
   <Target Name="Foo" BeforeTargets="CoreCompile">
     <ItemGroup>
       <ReferenceCopyLocalPaths Include="$(TestHostRuntimePath)**\*.dll" />
+      <ReferenceCopyLocalPaths Include="$(DotNetTool)" />
+      <ReferenceCopyLocalPaths Include="$(DotNetRoot)host\**\*.dll" />
     </ItemGroup>
   </Target>
 </Project>
