@@ -58,6 +58,11 @@ namespace System.Net.Test.Common
                 _connectionStream = sslStream;
             }
 
+            if (httpOptions.StreamWrapper != null)
+            {
+                _connectionStream = httpOptions.StreamWrapper(_connectionStream);
+            }
+
             _prefix = new byte[24];
             if (!FillBufferAsync(_prefix).Result)
             {

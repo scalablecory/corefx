@@ -1,0 +1,30 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <DefineConstants Condition="'$(TargetsWindows)'=='true'">$(DefineConstants);TargetsWindows</DefineConstants>
+    <DefineConstants>$(DefineConstants);SYSNETHTTP_NO_OPENSSL</DefineConstants>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Configurations>netcoreapp-Unix-Debug;netcoreapp-Unix-Release;netcoreapp-Windows_NT-Debug;netcoreapp-Windows_NT-Release;uap-Windows_NT-Debug;uap-Windows_NT-Release</Configurations>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="$(CommonTestPath)\System\Net\Http\LoopbackServer.cs">
+      <Link>Common\System\Net\Http\LoopbackServer.cs</Link>
+    </Compile>
+    <Compile Include="$(CommonTestPath)\System\Net\Http\GenericLoopbackServer.cs">
+      <Link>Common\System\Net\Http\GenericLoopbackServer.cs</Link>
+    </Compile>
+    <Compile Include="$(CommonTestPath)\System\Net\Configuration.Certificates.cs">
+      <Link>Common\System\Net\Configuration.Certificates.cs</Link>
+    </Compile>
+    <Compile Include="$(CommonTestPath)\System\Threading\Tasks\TaskTimeoutExtensions.cs">
+      <Link>Common\System\Threading\Tasks\TaskTimeoutExtensions.cs</Link>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="System.Net.TestData" Version="$(SystemNetTestDataPackageVersion)" />
+    <ProjectReference Include="$(CommonTestPath)\CoreFx.Private.TestUtilities\CoreFx.Private.TestUtilities.csproj" />
+  </ItemGroup>
+</Project>

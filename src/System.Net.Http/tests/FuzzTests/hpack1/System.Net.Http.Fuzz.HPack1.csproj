@@ -1,0 +1,67 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <StringResourcesPath>..\..\..\src\Resources\Strings.resx</StringResourcesPath>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Configurations>netcoreapp-OSX-Debug;netcoreapp-OSX-Release;netcoreapp-Unix-Debug;netcoreapp-Unix-Release;netcoreapp-Windows_NT-Debug;netcoreapp-Windows_NT-Release</Configurations>
+    <GenerateDependencyFile>false</GenerateDependencyFile>
+    <GenerateRuntimeConfigurationFilesPrivate>false</GenerateRuntimeConfigurationFilesPrivate>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+  </ItemGroup>
+  
+  <!-- Do not reference these assemblies from the TargetingPack since we are building part of the source code for tests. -->
+  <ItemGroup>
+    <DefaultReferenceExclusions Include="System.Net.Http" />
+    <DefaultReferenceExclusions Include="System.Net.Mail" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\..\src\System\Net\Http\SocketsHttpHandler\HPack\HeaderField.cs">
+      <Link>ProductionCode\System\Net\Http\SocketsHttpHandler\HPack\HeaderField.cs</Link>
+    </Compile>
+    <Compile Include="..\..\..\src\System\Net\Http\SocketsHttpHandler\HPack\HPackDecoder.cs">
+      <Link>ProductionCode\System\Net\Http\SocketsHttpHandler\HPack\HPackDecoder.cs</Link>
+    </Compile>
+    <Compile Include="..\..\..\src\System\Net\Http\SocketsHttpHandler\HPack\HPackDecodingException.cs">
+      <Link>ProductionCode\System\Net\Http\SocketsHttpHandler\HPack\HPackDecodingException.cs</Link>
+    </Compile>
+    <Compile Include="..\..\..\src\System\Net\Http\SocketsHttpHandler\HPack\Huffman.cs">
+      <Link>ProductionCode\System\Net\Http\SocketsHttpHandler\HPack\Huffman.cs</Link>
+    </Compile>
+    <Compile Include="..\..\..\src\System\Net\Http\SocketsHttpHandler\HPack\HuffmanDecodingException.cs">
+      <Link>ProductionCode\System\Net\Http\SocketsHttpHandler\HPack\HuffmanDecodingException.cs</Link>
+    </Compile>
+    <Compile Include="..\..\..\src\System\Net\Http\SocketsHttpHandler\HPack\IntegerDecoder.cs">
+      <Link>ProductionCode\System\Net\Http\SocketsHttpHandler\HPack\IntegerDecoder.cs</Link>
+    </Compile>
+    <Compile Include="..\..\..\src\System\Net\Http\SocketsHttpHandler\HPack\StaticTable.cs">
+      <Link>ProductionCode\System\Net\Http\SocketsHttpHandler\HPack\StaticTable.cs</Link>
+    </Compile>
+    <Compile Include="..\..\..\src\System\Net\Http\SocketsHttpHandler\HPack\DynamicTable.cs">
+      <Link>ProductionCode\System\Net\Http\SocketsHttpHandler\HPack\DynamicTable.cs</Link>
+    </Compile>
+    <Compile Include="..\..\..\src\System\Net\Http\ClientCertificateOption.cs">
+      <Link>ProductionCode\System\Net\Http\ClientCertificateOption.cs</Link>
+    </Compile>
+    <Compile Include="..\..\..\src\System\Net\Http\HttpRequestException.cs">
+      <Link>ProductionCode\System\Net\Http\HttpRequestException.cs</Link>
+    </Compile>
+    <Compile Include="$(CommonPath)\System\Net\Http\HttpHandlerDefaults.cs">
+      <Link>ProductionCode\System\Net\Http\HttpHandlerDefaults.cs</Link>
+    </Compile>
+    <Compile Include="$(CommonPath)\System\Net\InternalException.cs">
+      <Link>ProductionCode\System\Net\InternalException.cs</Link>
+    </Compile>
+    <Compile Include="$(CommonPath)\System\Net\Logging\NetEventSource.Common.cs">
+      <Link>ProductionCode\System\Net\Logging\NetEventSource.Common.cs</Link>
+    </Compile>
+  </ItemGroup>
+
+  <Target Name="Foo" BeforeTargets="CoreCompile">
+    <ItemGroup>
+      <ReferenceCopyLocalPaths Include="$(TestHostRuntimePath)**\*.dll" />
+    </ItemGroup>
+  </Target>
+</Project>

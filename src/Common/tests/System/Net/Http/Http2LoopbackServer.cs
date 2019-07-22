@@ -194,6 +194,7 @@ namespace System.Net.Test.Common
         public int ListenBacklog { get; set; } = 1;
         public bool UseSsl { get; set; } = PlatformDetection.SupportsAlpn && !Capability.Http2ForceUnencryptedLoopback();
         public SslProtocols SslProtocols { get; set; } = SslProtocols.Tls12;
+        public Func<Stream, Stream> StreamWrapper { get; set; }
     }
 
     public sealed class Http2LoopbackServerFactory : LoopbackServerFactory
