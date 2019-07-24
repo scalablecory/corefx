@@ -1,0 +1,79 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <DefineConstants Condition="'$(TargetsWindows)'=='true'">$(DefineConstants);TargetsWindows</DefineConstants>
+    <DefineConstants>$(DefineConstants);SYSNETHTTP_NO_OPENSSL</DefineConstants>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Configurations>netcoreapp-Unix-Debug;netcoreapp-Unix-Release;netcoreapp-Windows_NT-Debug;netcoreapp-Windows_NT-Release;uap-Windows_NT-Debug;uap-Windows_NT-Release</Configurations>
+    <GenerateDependencyFile>false</GenerateDependencyFile>
+    <GenerateRuntimeConfigurationFilesPrivate>false</GenerateRuntimeConfigurationFilesPrivate>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <Compile Include="..\..\FunctionalTests\TestHelper.cs">
+      <Link>FunctionalTests\TestHelper.cs</Link>
+    </Compile>
+    <Compile Include="$(CommonTestPath)\System\Net\Http\Http2LoopbackServer.cs">
+      <Link>Common\System\Net\Http\Http2LoopbackServer.cs</Link>
+    </Compile>
+    <Compile Include="$(CommonTestPath)\System\Net\Http\Http2LoopbackConnection.cs">
+      <Link>Common\System\Net\Http\Http2LoopbackConnection.cs</Link>
+    </Compile>
+    <Compile Include="$(CommonTestPath)\System\Net\Http\Http2Frames.cs">
+      <Link>Common\System\Net\Http\Http2Frames.cs</Link>
+    </Compile>
+    <Compile Include="$(CommonTestPath)\System\Net\Http\HuffmanDecoder.cs">
+      <Link>Common\System\Net\Http\HuffmanDecoder.cs</Link>
+    </Compile>
+    <Compile Include="$(CommonTestPath)\System\Net\Http\HuffmanEncoder.cs">
+      <Link>Common\System\Net\Http\HuffmanEncoder.cs</Link>
+    </Compile>
+    <Compile Include="$(CommonTestPath)\System\Net\Http\LoopbackServer.cs">
+      <Link>Common\System\Net\Http\LoopbackServer.cs</Link>
+    </Compile>
+    <Compile Include="$(CommonTestPath)\System\Net\Http\GenericLoopbackServer.cs">
+      <Link>Common\System\Net\Http\GenericLoopbackServer.cs</Link>
+    </Compile>
+    <Compile Include="$(CommonTestPath)\System\Net\Configuration.cs">
+      <Link>Common\System\Net\Configuration.cs</Link>
+    </Compile>
+    <Compile Include="$(CommonTestPath)\System\Net\Configuration.Certificates.cs">
+      <Link>Common\System\Net\Configuration.Certificates.cs</Link>
+    </Compile>
+    <Compile Include="$(CommonTestPath)\System\Net\Configuration.Http.cs">
+      <Link>Common\System\Net\Configuration.Http.cs</Link>
+    </Compile>
+    <Compile Include="$(CommonTestPath)\System\Net\Configuration.Security.cs">
+      <Link>Common\System\Net\Configuration.Security.cs</Link>
+    </Compile>
+    <Compile Include="$(CommonTestPath)\System\Net\Capability.Security.cs">
+      <Link>Common\System\Net\Capability.Security.cs</Link>
+    </Compile>
+    <Compile Include="$(CommonTestPath)\System\Net\Capability.Security.Windows.cs">
+      <Link>Common\System\Net\Capability.Security.Windows.cs</Link>
+    </Compile>
+    <Compile Include="$(CommonTestPath)\System\Threading\Tasks\TaskTimeoutExtensions.cs">
+      <Link>Common\System\Threading\Tasks\TaskTimeoutExtensions.cs</Link>
+    </Compile>
+  </ItemGroup>
+
+
+  <ItemGroup>
+    <!-- Do not reference these assemblies from the TargetingPack since we are building part of the source code for tests. -->
+    <DefaultReferenceExclusions Include="System.Net.Http" />
+    <DefaultReferenceExclusions Include="System.Net.Mail" />
+
+    <Content Visible="false" Include="$(TestHostRuntimePath)**\*.dll" CopyToOutputDirectory="PreserveNewest">
+      <Link>%(RecursiveDir)%(FileName)%(Extension)</Link>
+    </Content>
+    <Content Visible="false" Include="$(DotNetTool)" CopyToOutputDirectory="PreserveNewest">
+      <Link>%(RecursiveDir)%(FileName)%(Extension)</Link>
+    </Content>
+    <Content Visible="false" Include="$(DotNetRoot)host\**\*.dll" CopyToOutputDirectory="PreserveNewest">
+      <Link>host/%(RecursiveDir)%(FileName)%(Extension)</Link>
+    </Content>
+  </ItemGroup>
+</Project>

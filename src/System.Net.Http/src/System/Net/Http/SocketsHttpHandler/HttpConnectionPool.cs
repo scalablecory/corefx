@@ -653,6 +653,8 @@ namespace System.Net.Http
                     transportContext = sslStream.TransportContext;
                 }
 
+                stream = Settings._createStreamWrapper?.Invoke(stream) ?? stream;
+
                 return (socket, stream, transportContext, null);
             }
             finally

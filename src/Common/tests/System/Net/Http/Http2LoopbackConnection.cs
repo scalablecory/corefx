@@ -279,14 +279,19 @@ namespace System.Net.Test.Common
             _ignoreWindowUpdates = false;
         }
 
+        public async Task ShutdownAsync(int lastStreamId, ProtocolErrors errorCode = ProtocolErrors.NO_ERROR)
+        {
+            await SendGoAway(lastStreamId, errorCode).ConfigureAwait(false);
+            await WaitForConnectionShutdownAsync(ignoreUnexpectedFrames: true).ConfigureAwait(false);
+        }
+
         // This is similar to WaitForConnectionShutdownAsync but will send GOAWAY for you
         // and will ignore any errors if client has already shutdown
         public async Task ShutdownIgnoringErrorsAsync(int lastStreamId, ProtocolErrors errorCode = ProtocolErrors.NO_ERROR)
         {
             try
             {
-                await SendGoAway(lastStreamId, errorCode).ConfigureAwait(false);
-                await WaitForConnectionShutdownAsync(ignoreUnexpectedFrames: true).ConfigureAwait(false);
+                await ShutdownAsync(lastStreamId, errorCode).ConfigureAwait(false);
             }
             catch (IOException)
             {
