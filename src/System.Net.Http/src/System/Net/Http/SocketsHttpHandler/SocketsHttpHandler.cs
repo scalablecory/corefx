@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for more information.
 
 using System.Collections.Generic;
-using System.IO;
 using System.Net.Security;
 using System.Threading;
 using System.Threading.Tasks;
@@ -268,16 +267,6 @@ namespace System.Net.Http
 
                 CheckDisposedOrStarted();
                 _settings._expect100ContinueTimeout = value;
-            }
-        }
-
-        public Func<Stream, Stream> StreamWrapper
-        {
-            get => _settings._createStreamWrapper;
-            set
-            {
-                CheckDisposedOrStarted();
-                _settings._createStreamWrapper = value;
             }
         }
 

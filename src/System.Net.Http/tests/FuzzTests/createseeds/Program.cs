@@ -5,6 +5,7 @@ using System.Net.Http;
 using System.Net.Security;
 using System.Net.Test.Common;
 using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -12,13 +13,138 @@ namespace createseeds
 {
     class Program
     {
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
-            Http2LoopbackServer.CreateClientAndServerAsync(async uri =>
+            await DoGet(async con =>
+            {
+                int streamId = await con.ReadRequestHeaderAsync();
+                await con.SendDefaultResponseAsync(streamId);
+            });
+
+            await DoGet(async con =>
+            {
+                int streamId = await con.ReadRequestHeaderAsync();
+
+                byte[] buffer = new byte[4096];
+                int len = Http2LoopbackConnection.EncodeHeader(new HttpHeaderData(":status", "200"), buffer);
+                Frame frame = new HeadersFrame(buffer.AsMemory(0, len), FrameFlags.EndHeaders | FrameFlags.EndStream, 0, 0, 0, streamId);
+                await con.WriteFrameAsync(frame);
+            });
+
+            await DoGet(async con =>
+            {
+                int streamId = await con.ReadRequestHeaderAsync();
+
+                byte[] buffer = new byte[4096];
+                int len = Http2LoopbackConnection.EncodeHeader(new HttpHeaderData(":status", "200"), buffer);
+                Frame frame = new HeadersFrame(buffer.AsMemory(0, len), FrameFlags.EndStream, 0, 0, 0, streamId);
+                await con.WriteFrameAsync(frame);
+
+                len = Http2LoopbackConnection.EncodeHeader(new HttpHeaderData("x-next-frame", "asdf"), buffer);
+                frame = new ContinuationFrame(buffer.AsMemory(0, len), FrameFlags.EndHeaders, 0, 0, 0, streamId);
+                await con.WriteFrameAsync(frame);
+            });
+
+            await DoGet(async con =>
+            {
+                int streamId = await con.ReadRequestHeaderAsync();
+
+                byte[] buffer = new byte[4096];
+                int len = Http2LoopbackConnection.EncodeHeader(new HttpHeaderData(":status", "200"), buffer);
+                Frame frame = new HeadersFrame(buffer.AsMemory(0, len), FrameFlags.None, 0, 0, 0, streamId);
+                await con.WriteFrameAsync(frame);
+
+                len = Http2LoopbackConnection.EncodeHeader(new HttpHeaderData("x-next-frame", "asdf"), buffer);
+                frame = new ContinuationFrame(buffer.AsMemory(0, len), FrameFlags.EndHeaders, 0, 0, 0, streamId);
+                await con.WriteFrameAsync(frame);
+
+                frame = new DataFrame(ReadOnlyMemory<byte>.Empty, FrameFlags.EndStream, 0, streamId);
+                await con.WriteFrameAsync(frame);
+            });
+
+            await DoGet(async con =>
+            {
+                int streamId = await con.ReadRequestHeaderAsync();
+
+                byte[] buffer = new byte[4096];
+                int len = Http2LoopbackConnection.EncodeHeader(new HttpHeaderData(":status", "200"), buffer);
+                Frame frame = new HeadersFrame(buffer.AsMemory(0, len), FrameFlags.None, 0, 0, 0, streamId);
+                await con.WriteFrameAsync(frame);
+
+                len = Http2LoopbackConnection.EncodeHeader(new HttpHeaderData("x-next-frame", "asdf"), buffer);
+                frame = new ContinuationFrame(buffer.AsMemory(0, len), FrameFlags.EndHeaders, 0, 0, 0, streamId);
+                await con.WriteFrameAsync(frame);
+
+                Array.Fill(buffer, (byte)0);
+                frame = new DataFrame(buffer.AsMemory(), FrameFlags.EndStream, 0, streamId);
+                await con.WriteFrameAsync(frame);
+            });
+
+            await DoGet(async con =>
+            {
+                int streamId = await con.ReadRequestHeaderAsync();
+
+                byte[] buffer = new byte[4096];
+                int len = Http2LoopbackConnection.EncodeHeader(new HttpHeaderData(":status", "200"), buffer);
+                Frame frame = new HeadersFrame(buffer.AsMemory(0, len), FrameFlags.EndHeaders, 0, 0, 0, streamId);
+                await con.WriteFrameAsync(frame);
+
+                Array.Fill(buffer, (byte)0);
+                frame = new DataFrame(buffer.AsMemory(), FrameFlags.None, 0, streamId);
+                await con.WriteFrameAsync(frame);
+
+                len = Http2LoopbackConnection.EncodeHeader(new HttpHeaderData("x-trailing-header", "qwerty"), buffer);
+                frame = new HeadersFrame(buffer.AsMemory(0, len), FrameFlags.EndStream, 0, 0, 0, streamId);
+                await con.WriteFrameAsync(frame);
+
+                len = Http2LoopbackConnection.EncodeHeader(new HttpHeaderData("x-next-trailing-frame", "asdf"), buffer);
+                frame = new ContinuationFrame(buffer.AsMemory(0, len), FrameFlags.EndHeaders, 0, 0, 0, streamId);
+                await con.WriteFrameAsync(frame);
+            });
+
+            await DoGet(async con =>
+            {
+                int streamId = await con.ReadRequestHeaderAsync();
+
+                byte[] buffer = new byte[4096];
+                int len = Http2LoopbackConnection.EncodeHeader(new HttpHeaderData(":status", "200"), buffer);
+                Frame frame = new HeadersFrame(buffer.AsMemory(0, len), FrameFlags.EndHeaders, 0, 0, 0, streamId);
+                await con.WriteFrameAsync(frame);
+
+                Array.Fill(buffer, (byte)0);
+                frame = new DataFrame(buffer.AsMemory(0, 1024), FrameFlags.None, 0, streamId);
+                await con.WriteFrameAsync(frame);
+
+                Array.Fill(buffer, (byte)0);
+                frame = new DataFrame(buffer.AsMemory(0, 2048), FrameFlags.None, 0, streamId);
+                await con.WriteFrameAsync(frame);
+
+                Array.Fill(buffer, (byte)0);
+                frame = new DataFrame(buffer.AsMemory(0, 4096), FrameFlags.None, 0, streamId);
+                await con.WriteFrameAsync(frame);
+
+                len = Http2LoopbackConnection.EncodeHeader(new HttpHeaderData("x-trailing-header", "qwerty"), buffer);
+                frame = new HeadersFrame(buffer.AsMemory(0, len), FrameFlags.EndStream, 0, 0, 0, streamId);
+                await con.WriteFrameAsync(frame);
+
+                len = Http2LoopbackConnection.EncodeHeader(new HttpHeaderData("x-next-trailing-frame", "asdf"), buffer);
+                frame = new ContinuationFrame(buffer.AsMemory(0, len), FrameFlags.EndHeaders, 0, 0, 0, streamId);
+                await con.WriteFrameAsync(frame);
+            });
+        }
+
+        static async Task DoGet(Func<Http2LoopbackConnection, Task> run)
+        {
+            Http2Options opts = new Http2Options() { StreamWrapper = s => new StreamDumper(s) };
+
+            await Http2LoopbackServer.CreateClientAndServerAsync(async uri =>
             {
                 var handler = new SocketsHttpHandler()
                 {
-                    StreamWrapper = s => new StreamDumper(s)
+                    SslOptions = new SslClientAuthenticationOptions
+                    {
+                        RemoteCertificateValidationCallback = delegate { return true; }
+                    }
                 };
 
                 using var client = new HttpClient(handler);
@@ -30,38 +156,36 @@ namespace createseeds
             async server =>
             {
                 using Http2LoopbackConnection connection = await server.EstablishConnectionAsync();
-                int streamId = await connection.ReadRequestHeaderAsync();
-
-                await connection.SendDefaultResponseAsync(streamId);
-                await connection.ShutdownAsync(streamId);
-            }).GetAwaiter().GetResult();
+                await run(connection);
+            }, options: opts);
         }
     }
 
     sealed class StreamDumper : Stream
     {
-        static int s_count;
-        readonly Stream _baseStream, _readStream;
+        static int s_count = 1;
+        readonly Stream _baseStream, _logStream;
 
         public StreamDumper(Stream baseStream)
         {
             _baseStream = baseStream;
 
             int id = Interlocked.Increment(ref s_count);
-            _readStream = new FileStream($"connection_{id:N4}_server.bin", FileMode.Create, FileAccess.Write, FileShare.None, 4096, FileOptions.Asynchronous);
+            _logStream = new FileStream($"connection_{id}_server.bin", FileMode.Create, FileAccess.Write, FileShare.None, 4096, FileOptions.Asynchronous);
         }
+
         protected override void Dispose(bool disposing)
         {
             if (disposing)
             {
-                _readStream.Dispose();
+                _logStream.Dispose();
                 _baseStream.Dispose();
             }
         }
 
         public override async ValueTask DisposeAsync()
         {
-            await _readStream.DisposeAsync().ConfigureAwait(false);
+            await _logStream.DisposeAsync().ConfigureAwait(false);
             await _baseStream.DisposeAsync().ConfigureAwait(false);
         }
 
@@ -90,12 +214,9 @@ namespace createseeds
             throw new NotImplementedException();
         }
 
-        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
         {
-            int count = await _baseStream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
-            await _readStream.WriteAsync(buffer.Slice(0, count), cancellationToken).ConfigureAwait(false);
-            await _readStream.FlushAsync(cancellationToken).ConfigureAwait(false);
-            return count;
+            return _baseStream.ReadAsync(buffer, cancellationToken);
         }
 
         public override long Seek(long offset, SeekOrigin origin)
@@ -110,12 +231,18 @@ namespace createseeds
 
         public override void Write(byte[] buffer, int offset, int count)
         {
-            throw new NotImplementedException();
+            _baseStream.Write(buffer, offset, count);
+            _logStream.Write(buffer, offset, count);
+            _logStream.Flush();
         }
 
-        public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
+        public override async Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
         {
-            return _baseStream.WriteAsync(buffer, cancellationToken);
+            Console.WriteLine($"{nameof(_baseStream)}: {_baseStream != null}, {nameof(_logStream)}: {_logStream != null}, {nameof(buffer)}: {buffer != null}");
+
+            await _baseStream.WriteAsync(buffer, offset, count, cancellationToken);
+            await _logStream.WriteAsync(buffer, offset, count, cancellationToken);
+            await _logStream.FlushAsync(cancellationToken);
         }
     }
 }

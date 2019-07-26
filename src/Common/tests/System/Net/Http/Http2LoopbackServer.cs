@@ -176,9 +176,9 @@ namespace System.Net.Test.Common
             }
         }
 
-        public async static Task CreateClientAndServerAsync(Func<Uri, Task> clientFunc, Func<Http2LoopbackServer, Task> serverFunc, int timeout = 60_000)
+        public async static Task CreateClientAndServerAsync(Func<Uri, Task> clientFunc, Func<Http2LoopbackServer, Task> serverFunc, int timeout = 60_000, Http2Options options = null)
         {
-            using (var server = Http2LoopbackServer.CreateServer())
+            using (var server = Http2LoopbackServer.CreateServer(options ?? new Http2Options()))
             {
                 Task clientTask = clientFunc(server.Address);
                 Task serverTask = serverFunc(server);

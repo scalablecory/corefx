@@ -5,8 +5,6 @@
     <DefineConstants>$(DefineConstants);SYSNETHTTP_NO_OPENSSL</DefineConstants>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Configurations>netcoreapp-Unix-Debug;netcoreapp-Unix-Release;netcoreapp-Windows_NT-Debug;netcoreapp-Windows_NT-Release;uap-Windows_NT-Debug;uap-Windows_NT-Release</Configurations>
-    <GenerateDependencyFile>false</GenerateDependencyFile>
-    <GenerateRuntimeConfigurationFilesPrivate>false</GenerateRuntimeConfigurationFilesPrivate>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
@@ -59,21 +57,17 @@
       <Link>Common\System\Threading\Tasks\TaskTimeoutExtensions.cs</Link>
     </Compile>
   </ItemGroup>
+  
+  <ItemGroup>
+    <PackageReference Include="xunit" Version="2.4.1"/>
+    <PackageReference Include="System.Net.TestData" Version="1.0.6"/>
+    <Reference Include="C:\dev\corefx3\artifacts\bin\CoreFx.Private.TestUtilities\netcoreapp-Debug\CoreFx.Private.TestUtilities.dll"/>
+  </ItemGroup>
 
 
   <ItemGroup>
     <!-- Do not reference these assemblies from the TargetingPack since we are building part of the source code for tests. -->
-    <DefaultReferenceExclusions Include="System.Net.Http" />
-    <DefaultReferenceExclusions Include="System.Net.Mail" />
-
-    <Content Visible="false" Include="$(TestHostRuntimePath)**\*.dll" CopyToOutputDirectory="PreserveNewest">
-      <Link>%(RecursiveDir)%(FileName)%(Extension)</Link>
-    </Content>
-    <Content Visible="false" Include="$(DotNetTool)" CopyToOutputDirectory="PreserveNewest">
-      <Link>%(RecursiveDir)%(FileName)%(Extension)</Link>
-    </Content>
-    <Content Visible="false" Include="$(DotNetRoot)host\**\*.dll" CopyToOutputDirectory="PreserveNewest">
-      <Link>host/%(RecursiveDir)%(FileName)%(Extension)</Link>
-    </Content>
+    <!--<DefaultReferenceExclusions Include="System.Net.Http" />
+    <DefaultReferenceExclusions Include="System.Net.Mail" />-->
   </ItemGroup>
 </Project>

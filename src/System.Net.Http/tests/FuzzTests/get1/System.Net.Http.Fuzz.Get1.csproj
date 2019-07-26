@@ -5,9 +5,37 @@
     <DefineConstants>$(DefineConstants);SYSNETHTTP_NO_OPENSSL</DefineConstants>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Configurations>netcoreapp-Unix-Debug;netcoreapp-Unix-Release;netcoreapp-Windows_NT-Debug;netcoreapp-Windows_NT-Release;uap-Windows_NT-Debug;uap-Windows_NT-Release</Configurations>
+    <GenerateDependencyFile>false</GenerateDependencyFile>
+    <GenerateRuntimeConfigurationFilesPrivate>false</GenerateRuntimeConfigurationFilesPrivate>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="seeds\seed_1.bin">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="seeds\seed_2.bin">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="seeds\seed_3.bin">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="seeds\seed_4.bin">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="seeds\seed_5.bin">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="seeds\seed_6.bin">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="seeds\seed_7.bin">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="seeds\seed_8.bin">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="$(CommonTestPath)\System\Net\Http\LoopbackServer.cs">
@@ -23,8 +51,20 @@
       <Link>Common\System\Threading\Tasks\TaskTimeoutExtensions.cs</Link>
     </Compile>
   </ItemGroup>
+
   <ItemGroup>
-    <PackageReference Include="System.Net.TestData" Version="$(SystemNetTestDataPackageVersion)" />
-    <ProjectReference Include="$(CommonTestPath)\CoreFx.Private.TestUtilities\CoreFx.Private.TestUtilities.csproj" />
+    <PackageReference Include="xunit" Version="2.4.1"/>
+    <PackageReference Include="System.Net.TestData" Version="1.0.6"/>
+    <Reference Include="C:\dev\corefx3\artifacts\bin\CoreFx.Private.TestUtilities\netcoreapp-Debug\CoreFx.Private.TestUtilities.dll"/>
+
+    <Content Visible="false" Include="$(TestHostRuntimePath)**\*.dll" CopyToOutputDirectory="PreserveNewest">
+      <Link>%(RecursiveDir)%(FileName)%(Extension)</Link>
+    </Content>
+    <Content Visible="false" Include="$(DotNetTool)" CopyToOutputDirectory="PreserveNewest">
+      <Link>%(RecursiveDir)%(FileName)%(Extension)</Link>
+    </Content>
+    <Content Visible="false" Include="$(DotNetRoot)host\**\*.dll" CopyToOutputDirectory="PreserveNewest">
+      <Link>host/%(RecursiveDir)%(FileName)%(Extension)</Link>
+    </Content>
   </ItemGroup>
 </Project>

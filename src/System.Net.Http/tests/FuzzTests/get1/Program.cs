@@ -14,13 +14,20 @@ namespace get1
         {
             byte[] payload = File.ReadAllBytes(args[0]);
 
+            var opts = new LoopbackServer.Options { UseSsl = true };
             LoopbackServer.CreateClientAndServerAsync(async uri =>
             {
-                using HttpClient client = new HttpClient();
+                var handler = new SocketsHttpHandler()
+                {
+                    SslOptions = new System.Net.Security.SslClientAuthenticationOptions
+                    {
+                        RemoteCertificateValidationCallback = delegate { return true; }
+                    }
+                };
+                using HttpClient client = new HttpClient(handler);
                 client.DefaultRequestVersion = new Version(2, 0);
 
-                using HttpResponseMessage response = await client.GetAsync(uri);
-                await response.Content.ReadAsStringAsync();
+                await client.GetStringAsync(uri);
             },
             async server =>
             {
@@ -37,7 +44,7 @@ namespace get1
                     await connection.Stream.FlushAsync();
                     connection.Socket.Shutdown(System.Net.Sockets.SocketShutdown.Send);
                 }
-            }).GetAwaiter().GetResult();
+            }, opts).GetAwaiter().GetResult();
         }
     }
 }
