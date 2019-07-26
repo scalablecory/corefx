@@ -91,7 +91,6 @@ namespace System.Net.Test.Common
             byte[] writeBuffer = new byte[Frame.FrameHeaderLength + frame.Length];
             frame.WriteTo(writeBuffer);
 
-            Console.WriteLine($"{nameof(_connectionStream)}: {_connectionStream != null}, {nameof(writeBuffer)}: {writeBuffer != null}");
             await _connectionStream.WriteAsync(writeBuffer, 0, writeBuffer.Length).ConfigureAwait(false);
         }
 

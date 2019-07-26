@@ -15,26 +15,21 @@ namespace createseeds
     {
         static async Task Main(string[] args)
         {
-            await DoGet(async con =>
+            await DoGet(async (con, streamId) =>
             {
-                int streamId = await con.ReadRequestHeaderAsync();
                 await con.SendDefaultResponseAsync(streamId);
             });
 
-            await DoGet(async con =>
+            await DoGet(async (con, streamId) =>
             {
-                int streamId = await con.ReadRequestHeaderAsync();
-
                 byte[] buffer = new byte[4096];
                 int len = Http2LoopbackConnection.EncodeHeader(new HttpHeaderData(":status", "200"), buffer);
                 Frame frame = new HeadersFrame(buffer.AsMemory(0, len), FrameFlags.EndHeaders | FrameFlags.EndStream, 0, 0, 0, streamId);
                 await con.WriteFrameAsync(frame);
             });
 
-            await DoGet(async con =>
+            await DoGet(async (con, streamId) =>
             {
-                int streamId = await con.ReadRequestHeaderAsync();
-
                 byte[] buffer = new byte[4096];
                 int len = Http2LoopbackConnection.EncodeHeader(new HttpHeaderData(":status", "200"), buffer);
                 Frame frame = new HeadersFrame(buffer.AsMemory(0, len), FrameFlags.EndStream, 0, 0, 0, streamId);
@@ -45,10 +40,8 @@ namespace createseeds
                 await con.WriteFrameAsync(frame);
             });
 
-            await DoGet(async con =>
+            await DoGet(async (con, streamId) =>
             {
-                int streamId = await con.ReadRequestHeaderAsync();
-
                 byte[] buffer = new byte[4096];
                 int len = Http2LoopbackConnection.EncodeHeader(new HttpHeaderData(":status", "200"), buffer);
                 Frame frame = new HeadersFrame(buffer.AsMemory(0, len), FrameFlags.None, 0, 0, 0, streamId);
@@ -62,10 +55,8 @@ namespace createseeds
                 await con.WriteFrameAsync(frame);
             });
 
-            await DoGet(async con =>
+            await DoGet(async (con, streamId) =>
             {
-                int streamId = await con.ReadRequestHeaderAsync();
-
                 byte[] buffer = new byte[4096];
                 int len = Http2LoopbackConnection.EncodeHeader(new HttpHeaderData(":status", "200"), buffer);
                 Frame frame = new HeadersFrame(buffer.AsMemory(0, len), FrameFlags.None, 0, 0, 0, streamId);
@@ -80,10 +71,8 @@ namespace createseeds
                 await con.WriteFrameAsync(frame);
             });
 
-            await DoGet(async con =>
+            await DoGet(async (con, streamId) =>
             {
-                int streamId = await con.ReadRequestHeaderAsync();
-
                 byte[] buffer = new byte[4096];
                 int len = Http2LoopbackConnection.EncodeHeader(new HttpHeaderData(":status", "200"), buffer);
                 Frame frame = new HeadersFrame(buffer.AsMemory(0, len), FrameFlags.EndHeaders, 0, 0, 0, streamId);
@@ -102,10 +91,8 @@ namespace createseeds
                 await con.WriteFrameAsync(frame);
             });
 
-            await DoGet(async con =>
+            await DoGet(async (con, streamId) =>
             {
-                int streamId = await con.ReadRequestHeaderAsync();
-
                 byte[] buffer = new byte[4096];
                 int len = Http2LoopbackConnection.EncodeHeader(new HttpHeaderData(":status", "200"), buffer);
                 Frame frame = new HeadersFrame(buffer.AsMemory(0, len), FrameFlags.EndHeaders, 0, 0, 0, streamId);
@@ -133,7 +120,7 @@ namespace createseeds
             });
         }
 
-        static async Task DoGet(Func<Http2LoopbackConnection, Task> run)
+        static async Task DoGet(Func<Http2LoopbackConnection, int, Task> run)
         {
             Http2Options opts = new Http2Options() { StreamWrapper = s => new StreamDumper(s) };
 
@@ -156,7 +143,8 @@ namespace createseeds
             async server =>
             {
                 using Http2LoopbackConnection connection = await server.EstablishConnectionAsync();
-                await run(connection);
+                int streamId = await connection.ReadRequestHeaderAsync();
+                await run(connection, streamId);
             }, options: opts);
         }
     }
@@ -171,7 +159,9 @@ namespace createseeds
             _baseStream = baseStream;
 
             int id = Interlocked.Increment(ref s_count);
-            _logStream = new FileStream($"connection_{id}_server.bin", FileMode.Create, FileAccess.Write, FileShare.None, 4096, FileOptions.Asynchronous);
+            _logStream = new FileStream($"seed_{id}.bin", FileMode.Create, FileAccess.Write, FileShare.None, 4096, FileOptions.Asynchronous);
+
+            Console.Write($"byte[] seed_{id} = new byte[] {{");
         }
 
         protected override void Dispose(bool disposing)
@@ -180,6 +170,7 @@ namespace createseeds
             {
                 _logStream.Dispose();
                 _baseStream.Dispose();
+                Console.WriteLine(" }");
             }
         }
 
@@ -187,6 +178,7 @@ namespace createseeds
         {
             await _logStream.DisposeAsync().ConfigureAwait(false);
             await _baseStream.DisposeAsync().ConfigureAwait(false);
+            Console.WriteLine(" }");
         }
 
         public override bool CanRead => _baseStream.CanRead;
@@ -234,15 +226,28 @@ namespace createseeds
             _baseStream.Write(buffer, offset, count);
             _logStream.Write(buffer, offset, count);
             _logStream.Flush();
+
+            WriteHex(buffer, offset, count);
         }
 
         public override async Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
         {
-            Console.WriteLine($"{nameof(_baseStream)}: {_baseStream != null}, {nameof(_logStream)}: {_logStream != null}, {nameof(buffer)}: {buffer != null}");
-
             await _baseStream.WriteAsync(buffer, offset, count, cancellationToken);
             await _logStream.WriteAsync(buffer, offset, count, cancellationToken);
             await _logStream.FlushAsync(cancellationToken);
+
+            WriteHex(buffer, offset, count);
+        }
+
+        int pos = 0;
+
+        void WriteHex(byte[] buffer, int offset, int count)
+        {
+            for (int i = 0; i < count; ++i)
+            {
+                Console.Write(pos++ == 0 ? " 0x" : ", 0x");
+                Console.Write(buffer[offset + i].ToString("X2"));
+            }
         }
     }
 }
