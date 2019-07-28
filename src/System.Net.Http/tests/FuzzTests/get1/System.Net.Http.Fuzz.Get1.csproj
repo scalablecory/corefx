@@ -55,7 +55,7 @@
   <ItemGroup>
     <PackageReference Include="xunit" Version="2.4.1"/>
     <PackageReference Include="System.Net.TestData" Version="1.0.6"/>
-    <Reference Include="C:\dev\corefx3\artifacts\bin\CoreFx.Private.TestUtilities\netcoreapp-Debug\CoreFx.Private.TestUtilities.dll"/>
+    <Reference Include="C:\dev\corefx\artifacts\bin\CoreFx.Private.TestUtilities\netcoreapp-Debug\CoreFx.Private.TestUtilities.dll"/>
 
     <Content Visible="false" Include="$(TestHostRuntimePath)**\*.dll" CopyToOutputDirectory="PreserveNewest">
       <Link>%(RecursiveDir)%(FileName)%(Extension)</Link>
