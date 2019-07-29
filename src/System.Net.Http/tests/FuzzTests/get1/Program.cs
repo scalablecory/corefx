@@ -80,9 +80,22 @@ namespace get1
                 Console.WriteLine("Waiting for HttpClient...");
                 await clientTask;
             }
+            catch (HttpRequestException ex) when (IsExpectedException(ex.InnerException))
+            {
+                // ignore protocol exceptions.
+            }
             finally
             {
                 Console.WriteLine("Done with HttpClient.");
+            }
+
+            bool IsExpectedException(Exception ex)
+            {
+                if (ex.GetType().Name == "Http2ConnectionException")
+                    return true;
+                if (ex.GetType().Name == "Http2StreamException")
+                    return true;
+                return false;
             }
 
             async Task DoReadUntilHeaders()
