@@ -1,14 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Configuration;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Net.Security;
 using System.Net.Sockets;
-using System.Net.Test.Common;
-using System.Runtime.CompilerServices;
-using System.Security.Policy;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -17,12 +13,55 @@ namespace get1
 {
     class Program
     {
-        static async Task Main(string[] args)
+        static void Main(string[] args)
         {
             // 2008 R2 on MSRD does not support ALPN.
             AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
 
-            byte[] payload = File.ReadAllBytes(args[0]);
+            if (!File.GetAttributes(args[0]).HasFlag(FileAttributes.Directory))
+            {
+                RunOneImpl(args[0]).GetAwaiter().GetResult();
+            }
+            else
+            {
+                var exceptions =
+                    from filePath in Directory.EnumerateFiles(args[0], "*.bin")
+                    from exception in RunOne(filePath)
+                    group (exception, filePath) by exception.ToString() into grp
+                    select grp
+                        .OrderByDescending(ex_fp => new FileInfo(ex_fp.filePath).Length)
+                        .First();
+
+                foreach (var (exception, filePath) in exceptions)
+                {
+                    Console.WriteLine(filePath);
+                    Console.WriteLine("===============");
+                    Console.WriteLine(exception.ToString());
+                    Console.WriteLine();
+                }
+            }
+        }
+
+        static IEnumerable<Exception> RunOne(string filePath)
+        {
+            try
+            {
+                RunOneImpl(filePath).Wait();
+                return Enumerable.Empty<Exception>();
+            }
+            catch (AggregateException ex)
+            {
+                return ex.Flatten().InnerExceptions;
+            }
+            catch (Exception ex)
+            {
+                return new[] { ex };
+            }
+        }
+
+        static async Task RunOneImpl(string filePath)
+        {
+            byte[] payload = File.ReadAllBytes(filePath);
 
             using Socket listenSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 
@@ -31,7 +70,6 @@ namespace get1
 
             var localEndPoint = (IPEndPoint)listenSocket.LocalEndPoint;
             string uri = $"http://{localEndPoint.Address}:{localEndPoint.Port}/";
-            Console.WriteLine($"Testing via {uri}");
 
             var handler = new SocketsHttpHandler()
             {
@@ -51,25 +89,6 @@ namespace get1
 
             using Socket acceptSock = await listenSocket.AcceptAsync();
             using Stream acceptStream = new NetworkStream(acceptSock, true);
-            //using SslStream sslStream = new SslStream(acceptStream, false, delegate { return true; });
-
-            //using (var cert = System.Net.Test.Common.Configuration.Certificates.GetServerCertificate())
-            //{
-            //    SslServerAuthenticationOptions options = new SslServerAuthenticationOptions();
-
-            //    options.EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12;
-
-            //    var protocols = new List<SslApplicationProtocol>();
-            //    protocols.Add(SslApplicationProtocol.Http2);
-            //    protocols.Add(SslApplicationProtocol.Http11);
-            //    options.ApplicationProtocols = protocols;
-
-            //    options.ServerCertificate = cert;
-
-            //    options.ClientCertificateRequired = false;
-
-            //    await sslStream.AuthenticateAsServerAsync(options);
-            //}
 
             await DoReadUntilHeaders();
             _ = DoRead();
@@ -77,20 +96,25 @@ namespace get1
 
             try
             {
-                Console.WriteLine("Waiting for HttpClient...");
                 await clientTask;
             }
             catch (HttpRequestException ex) when (IsExpectedException(ex.InnerException))
             {
                 // ignore protocol exceptions.
             }
-            finally
-            {
-                Console.WriteLine("Done with HttpClient.");
-            }
 
             bool IsExpectedException(Exception ex)
             {
+                while (ex is IOException)
+                {
+                    ex = ex.InnerException;
+                }
+
+                if (ex == null)
+                {
+                    return false;
+                }
+
                 if (ex.GetType().Name == "Http2ConnectionException")
                     return true;
                 if (ex.GetType().Name == "Http2StreamException")
@@ -100,81 +124,52 @@ namespace get1
 
             async Task DoReadUntilHeaders()
             {
-                Console.WriteLine("Waiting for headers...");
-                try
-                {
-                    byte[] expected = Encoding.ASCII.GetBytes("x-foo-ready");
-                    byte[] readbuf = new byte[1024];
-                    int readpos = 0;
+                byte[] expected = Encoding.ASCII.GetBytes("x-foo-ready");
+                byte[] readbuf = new byte[1024];
+                int readpos = 0;
 
-                    while (true)
+                while (true)
+                {
+                    if (readpos == readbuf.Length)
                     {
-                        if (readpos == readbuf.Length)
-                        {
-                            throw new Exception("Never received headers.");
-                        }
-
-                        int len = await acceptStream.ReadAsync(readbuf.AsMemory(readpos));
-
-                        if (len == 0)
-                        {
-                            throw new Exception("Never received headers.");
-                        }
-
-                        readpos += len;
-
-                        for (int i = 0; i < readpos; ++i)
-                        {
-                            if (readbuf.AsSpan(i, Math.Min(readpos - i, expected.Length)).SequenceEqual(expected))
-                            {
-                                Console.WriteLine("Found headers.");
-                                return;
-                            }
-                        }
-
+                        throw new Exception("Never received headers.");
                     }
-                }
-                finally
-                {
-                    Console.WriteLine("Done waiting for headers.");
+
+                    int len = await acceptStream.ReadAsync(readbuf.AsMemory(readpos));
+
+                    if (len == 0)
+                    {
+                        throw new Exception("Never received headers.");
+                    }
+
+                    readpos += len;
+
+                    for (int i = 0; i < readpos; ++i)
+                    {
+                        if (readbuf.AsSpan(i, Math.Min(readpos - i, expected.Length)).SequenceEqual(expected))
+                        {
+                            return;
+                        }
+                    }
+
                 }
             }
 
             async Task DoRead()
             {
-                Console.WriteLine("Reading...");
-                try
-                {
-                    byte[] readbuf = new byte[1024];
-                    int len;
+                byte[] readbuf = new byte[1024];
+                int len;
 
-                    do
-                        len = await acceptStream.ReadAsync(readbuf.AsMemory());
-                    while (len != 0);
-                }
-                finally
-                {
-                    Console.WriteLine("Done Reading.");
-                }
+                do
+                    len = await acceptStream.ReadAsync(readbuf.AsMemory());
+                while (len != 0);
             }
 
             async Task DoWrite()
             {
-                Console.WriteLine("Writing...");
-                try
-                {
-                    // Wait for HttpClient to initiate its stream ID, or writing payload will fail.
-                    await Task.Delay(500);
-
-                    await acceptStream.WriteAsync(payload.AsMemory());
-                    await acceptStream.FlushAsync();
-                    //await sslStream.ShutdownAsync();
-                    acceptSock.Shutdown(SocketShutdown.Send);
-                }
-                finally
-                {
-                    Console.WriteLine("Done Writing.");
-                }
+                await acceptStream.WriteAsync(payload.AsMemory());
+                await acceptStream.FlushAsync();
+                acceptSock.Shutdown(SocketShutdown.Send);
             }
         }
     }

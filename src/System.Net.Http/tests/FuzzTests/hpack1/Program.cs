@@ -1,10 +1,9 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http.HPack;
-using System.Text;
+using Microsoft.VisualBasic;
 
 namespace hpack1
 {
@@ -12,22 +11,27 @@ namespace hpack1
     {
         static void Main(string[] args)
         {
-            string path = args[0];
-
-            var exceptions =
-                from filePath in Directory.EnumerateFiles(path, "*.bin", SearchOption.TopDirectoryOnly)
-                from exception in RunOne(filePath)
-                group (exception, filePath) by exception.StackTrace into grp
-                select grp
-                    .OrderByDescending(ex_fp => new FileInfo(ex_fp.filePath).Length)
-                    .First();
-
-            foreach (var (exception, filePath) in exceptions)
+            if (!File.GetAttributes(args[0]).HasFlag(FileAttributes.Directory))
             {
-                Console.WriteLine(filePath);
-                Console.WriteLine("===============");
-                Console.WriteLine(exception.ToString());
-                Console.WriteLine();
+                RunOneImpl(args[0]);
+            }
+            else
+            {
+                var exceptions =
+                    from filePath in Directory.EnumerateFiles(args[0], "*.bin")
+                    from exception in RunOne(filePath)
+                    group (exception, filePath) by exception.ToString() into grp
+                    select grp
+                        .OrderByDescending(ex_fp => new FileInfo(ex_fp.filePath).Length)
+                        .First();
+
+                foreach (var (exception, filePath) in exceptions)
+                {
+                    Console.WriteLine(filePath);
+                    Console.WriteLine("===============");
+                    Console.WriteLine(exception.ToString());
+                    Console.WriteLine();
+                }
             }
         }
 
