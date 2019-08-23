@@ -9,6 +9,7 @@
     <!-- SYSTEM_NET_SOCKETS_DLL is required to allow source-level code sharing for types defined within the
          System.Net.Internals namespace. -->
     <DefineConstants>$(DefineConstants);SYSTEM_NET_SOCKETS_DLL</DefineConstants>
+    <AssemblyOriginatorKeyFile>C:\Users\conelso\.nuget\packages\microsoft.dotnet.arcade.sdk\1.0.0-beta.19416.16\tools\snk/MSFT.snk</AssemblyOriginatorKeyFile>
   </PropertyGroup>
   <ItemGroup>
     <!-- All configurations -->

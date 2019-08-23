@@ -1315,6 +1315,12 @@ namespace System.Net.Sockets
         // Sends data to a specific end point, starting at the indicated location in the buffer.
         public int SendTo(byte[] buffer, int offset, int size, SocketFlags socketFlags, EndPoint remoteEP)
         {
+            return SendTo(buffer, offset, size, socketFlags, remoteEP.Serialize());
+        }
+
+        // Sends data to a specific end point, starting at the indicated location in the buffer.
+        public int SendTo(byte[] buffer, int offset, int size, SocketFlags socketFlags, SocketAddress remoteAddress)
+        {
             if (NetEventSource.IsEnabled) NetEventSource.Enter(this);
 
             if (CleanedUp)
@@ -1326,9 +1332,9 @@ namespace System.Net.Sockets
             {
                 throw new ArgumentNullException(nameof(buffer));
             }
-            if (remoteEP == null)
+            if (remoteAddress == null)
             {
-                throw new ArgumentNullException(nameof(remoteEP));
+                throw new ArgumentNullException(nameof(remoteAddress));
             }
             if (offset < 0 || offset > buffer.Length)
             {
@@ -1340,13 +1346,10 @@ namespace System.Net.Sockets
             }
 
             ValidateBlockingMode();
-            if (NetEventSource.IsEnabled) NetEventSource.Info(this, $"SRC:{LocalEndPoint} size:{size} remoteEP:{remoteEP}");
-
-            EndPoint endPointSnapshot = remoteEP;
-            Internals.SocketAddress socketAddress = SnapshotAndSerialize(ref endPointSnapshot);
+            if (NetEventSource.IsEnabled) NetEventSource.Info(this, $"SRC:{LocalEndPoint} size:{size} remoteEP:{remoteAddress}");
 
             int bytesTransferred;
-            SocketError errorCode = SocketPal.SendTo(_handle, buffer, offset, size, socketFlags, socketAddress.Buffer, socketAddress.Size, out bytesTransferred);
+            SocketError errorCode = SocketPal.SendTo(_handle, buffer, offset, size, socketFlags, remoteAddress.Buffer, remoteAddress.Size, out bytesTransferred);
 
             // Throw an appropriate SocketException if the native call fails.
             if (errorCode != SocketError.Success)
@@ -1354,12 +1357,6 @@ namespace System.Net.Sockets
                 UpdateSendSocketErrorForCleanedUp(ref errorCode);
 
                 UpdateStatusAfterSocketErrorAndThrowException(errorCode);
-            }
-
-            if (_rightEndPoint == null)
-            {
-                // Save a copy of the EndPoint so we can use it for Create().
-                _rightEndPoint = endPointSnapshot;
             }
 
             if (NetEventSource.IsEnabled)
@@ -1671,6 +1668,23 @@ namespace System.Net.Sockets
         // the end point.
         public int ReceiveFrom(byte[] buffer, int offset, int size, SocketFlags socketFlags, ref EndPoint remoteEP)
         {
+            SocketAddress socketAddress = remoteEP.Serialize();
+            SocketAddress socketAddressOriginal = remoteEP.Serialize();
+
+            int len = ReceiveFrom(buffer, offset, size, socketFlags, socketAddress);
+
+            if (!socketAddressOriginal.Equals(socketAddress))
+            {
+                remoteEP = remoteEP.Create(socketAddress);
+            }
+
+            return len;
+        }
+
+        // Receives a datagram into a specific location in the data buffer and stores
+        // the end point.
+        public int ReceiveFrom(byte[] buffer, int offset, int size, SocketFlags socketFlags, SocketAddress remoteAddress)
+        {
             if (NetEventSource.IsEnabled) NetEventSource.Enter(this);
             if (CleanedUp)
             {
@@ -1682,14 +1696,14 @@ namespace System.Net.Sockets
             {
                 throw new ArgumentNullException(nameof(buffer));
             }
-            if (remoteEP == null)
+            if (remoteAddress == null)
             {
-                throw new ArgumentNullException(nameof(remoteEP));
+                throw new ArgumentNullException(nameof(remoteAddress));
             }
-            if (!CanTryAddressFamily(remoteEP.AddressFamily))
+            if (!CanTryAddressFamily(remoteAddress.Family))
             {
                 throw new ArgumentException(SR.Format(SR.net_InvalidEndPointAddressFamily,
-                    remoteEP.AddressFamily, _addressFamily), nameof(remoteEP));
+                    remoteAddress.Family, _addressFamily), nameof(remoteAddress));
             }
             if (offset < 0 || offset > buffer.Length)
             {
@@ -1707,17 +1721,10 @@ namespace System.Net.Sockets
             SocketPal.CheckDualModeReceiveSupport(this);
 
             ValidateBlockingMode();
-            if (NetEventSource.IsEnabled) NetEventSource.Info(this, $"SRC{LocalEndPoint} size:{size} remoteEP:{remoteEP}");
+            if (NetEventSource.IsEnabled) NetEventSource.Info(this, $"SRC{LocalEndPoint} size:{size} remoteEP:{remoteAddress}");
 
-            // We don't do a CAS demand here because the contents of remoteEP aren't used by
-            // WSARecvFrom; all that matters is that we generate a unique-to-this-call SocketAddress
-            // with the right address family.
-            EndPoint endPointSnapshot = remoteEP;
-            Internals.SocketAddress socketAddress = SnapshotAndSerialize(ref endPointSnapshot);
-            Internals.SocketAddress socketAddressOriginal = IPEndPointExtensions.Serialize(endPointSnapshot);
-
-            int bytesTransferred;
-            SocketError errorCode = SocketPal.ReceiveFrom(_handle, buffer, offset, size, socketFlags, socketAddress.Buffer, ref socketAddress.InternalSize, out bytesTransferred);
+            int bytesTransferred = 0;
+            SocketError errorCode = SocketPal.ReceiveFrom(_handle, buffer, offset, size, socketFlags, ref remoteAddress.Buffer, ref remoteAddress.InternalSize, out bytesTransferred);
 
             UpdateReceiveSocketErrorForCleanedUp(ref errorCode, bytesTransferred);
 
@@ -1732,22 +1739,6 @@ namespace System.Net.Sockets
                 if (socketException.SocketErrorCode != SocketError.MessageSize)
                 {
                     throw socketException;
-                }
-            }
-
-            if (!socketAddressOriginal.Equals(socketAddress))
-            {
-                try
-                {
-                    remoteEP = endPointSnapshot.Create(socketAddress);
-                }
-                catch
-                {
-                }
-                if (_rightEndPoint == null)
-                {
-                    // Save a copy of the EndPoint so we can use it for Create().
-                    _rightEndPoint = endPointSnapshot;
                 }
             }
 
