@@ -98,35 +98,50 @@ namespace System.Net.Internals
         }
 
         internal SocketAddress(IPAddress ipAddress)
-            : this(ipAddress.AddressFamily,
-                ((ipAddress.AddressFamily == AddressFamily.InterNetwork) ? IPv4AddressSize : IPv6AddressSize))
+            : this(ipAddress, 0)
         {
-            // No Port.
-            SocketAddressPal.SetPort(Buffer, 0);
+        }
+
+        internal SocketAddress(IPAddress ipaddress, int port)
+            : this(ipaddress.AddressFamily,
+                ((ipaddress.AddressFamily == AddressFamily.InterNetwork) ? IPv4AddressSize : IPv6AddressSize))
+        {
+            SetAddress(ipaddress, port);
+        }
+
+        public void SetAddress(IPEndPoint ipEndPoint)
+        {
+            SetAddress(ipEndPoint.Address, ipEndPoint.Port);
+        }
+
+        private void SetAddress(IPAddress ipAddress, int port)
+        {
+            SocketAddressPal.SetAddressFamily(Buffer, ipAddress.AddressFamily);
+            SocketAddressPal.SetPort(Buffer, unchecked((ushort)port));
 
             if (ipAddress.AddressFamily == AddressFamily.InterNetworkV6)
             {
                 Span<byte> addressBytes = stackalloc byte[IPAddressParserStatics.IPv6AddressBytes];
+
                 ipAddress.TryWriteBytes(addressBytes, out int bytesWritten);
                 Debug.Assert(bytesWritten == IPAddressParserStatics.IPv6AddressBytes);
 
                 SocketAddressPal.SetIPv6Address(Buffer, addressBytes, (uint)ipAddress.ScopeId);
+                InternalSize = IPv6AddressSize;
             }
-            else
+            else if (ipAddress.AddressFamily == AddressFamily.InterNetwork)
             {
 #pragma warning disable CS0618 // using Obsolete Address API because it's the more efficient option in this case
                 uint address = unchecked((uint)ipAddress.Address);
 #pragma warning restore CS0618
 
-                Debug.Assert(ipAddress.AddressFamily == AddressFamily.InterNetwork);
                 SocketAddressPal.SetIPv4Address(Buffer, address);
+                InternalSize = IPv4AddressSize;
             }
-        }
-
-        internal SocketAddress(IPAddress ipaddress, int port)
-            : this(ipaddress)
-        {
-            SocketAddressPal.SetPort(Buffer, unchecked((ushort)port));
+            else
+            {
+                throw new Exception();
+            }
         }
 
         internal IPAddress GetIPAddress()

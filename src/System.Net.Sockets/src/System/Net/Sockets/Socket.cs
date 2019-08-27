@@ -1724,7 +1724,7 @@ namespace System.Net.Sockets
             if (NetEventSource.IsEnabled) NetEventSource.Info(this, $"SRC{LocalEndPoint} size:{size} remoteEP:{remoteAddress}");
 
             int bytesTransferred = 0;
-            SocketError errorCode = SocketPal.ReceiveFrom(_handle, buffer, offset, size, socketFlags, ref remoteAddress.Buffer, ref remoteAddress.InternalSize, out bytesTransferred);
+            SocketError errorCode = SocketPal.ReceiveFrom(_handle, buffer, offset, size, socketFlags, remoteAddress.Buffer, ref remoteAddress.InternalSize, out bytesTransferred);
 
             UpdateReceiveSocketErrorForCleanedUp(ref errorCode, bytesTransferred);
 

@@ -309,6 +309,9 @@ namespace System.Net
         public override bool Equals(object comparand) { throw null; }
         public override int GetHashCode() { throw null; }
         public override string ToString() { throw null; }
+        public void SetAddress(System.Net.IPEndPoint ipEndPoint) { throw null; }
+        internal int InternalSize;
+        internal byte[] Buffer;
     }
     public abstract partial class TransportContext
     {

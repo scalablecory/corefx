@@ -273,7 +273,7 @@ namespace System.Net.Sockets.Tests
         [Fact]
         public void SendTo_NullEndPoint_Throws_ArgumentNull()
         {
-            Assert.Throws<ArgumentNullException>(() => GetSocket().SendTo(s_buffer, 0, 0, SocketFlags.None, null));
+            Assert.Throws<ArgumentNullException>(() => GetSocket().SendTo(s_buffer, 0, 0, SocketFlags.None, (EndPoint)null));
         }
 
         [Fact]
