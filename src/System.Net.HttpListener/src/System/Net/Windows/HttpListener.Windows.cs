@@ -44,8 +44,7 @@ namespace System.Net
             (byte) 'e', (byte) 'n', (byte) 't', (byte) 'i', (byte) 'c', (byte) 'a', (byte) 't', (byte) 'e'
         };
 
-        private SafeHandle _requestQueueHandle;
-        private ThreadPoolBoundHandle _requestQueueBoundHandle;
+        private HttpSysSession _requestSession;
         private bool _unsafeConnectionNtlmAuthentication;
 
         private HttpServerSessionHandle _serverSessionHandle;
@@ -54,7 +53,7 @@ namespace System.Net
         private bool _V2Initialized;
         private Dictionary<ulong, DisconnectAsyncResult> _disconnectResults;
 
-        internal SafeHandle RequestQueueHandle => _requestQueueHandle;
+        internal SafeHandle RequestQueueHandle => _requestSession.RequestQueueHandle;
 
         private void ValidateV2Property()
         {
@@ -159,28 +158,10 @@ namespace System.Net
 
         private IntPtr DangerousGetHandle()
         {
-            return ((HttpRequestQueueV2Handle)_requestQueueHandle).DangerousGetHandle();
+            return ((HttpRequestQueueV2Handle)RequestQueueHandle).DangerousGetHandle();
         }
 
-        internal ThreadPoolBoundHandle RequestQueueBoundHandle
-        {
-            get
-            {
-                if (_requestQueueBoundHandle == null)
-                {
-                    lock (_internalLock)
-                    {
-                        if (_requestQueueBoundHandle == null)
-                        {
-                            _requestQueueBoundHandle = ThreadPoolBoundHandle.BindHandle(_requestQueueHandle);
-                            if (NetEventSource.IsEnabled) NetEventSource.Info($"ThreadPoolBoundHandle.BindHandle({_requestQueueHandle}) -> {_requestQueueBoundHandle}");
-                        }
-                    }
-                }
-
-                return _requestQueueBoundHandle;
-            }
-        }
+        internal ThreadPoolBoundHandle RequestQueueBoundHandle => _requestSession.RequestQueueBoundHandle;
 
         private void SetupV2Config()
         {
@@ -442,17 +423,13 @@ namespace System.Net
                 throw new HttpListenerException(Marshal.GetLastWin32Error());
             }
 
-            _requestQueueHandle = requestQueueHandle;
+            _requestSession = new HttpSysSession(requestQueueHandle);
         }
 
         private unsafe void CloseRequestQueueHandle()
         {
-            if ((_requestQueueHandle != null) && (!_requestQueueHandle.IsInvalid))
-            {
-                if (NetEventSource.IsEnabled) NetEventSource.Info($"Dispose ThreadPoolBoundHandle: {_requestQueueBoundHandle}");
-                _requestQueueBoundHandle?.Dispose();
-                _requestQueueHandle.Dispose();
-            }
+            _requestSession?.RemoveRef();
+            _requestSession = null;
         }
 
         public void Abort()
@@ -585,7 +562,7 @@ namespace System.Net
                         uint bytesTransferred = 0;
                         statusCode =
                             Interop.HttpApi.HttpReceiveHttpRequest(
-                                _requestQueueHandle,
+                                RequestQueueHandle,
                                 requestId,
                                 (uint)Interop.HttpApi.HTTP_FLAGS.HTTP_RECEIVE_REQUEST_FLAG_COPY_BODY,
                                 memoryBlob.RequestBlob,
@@ -1650,7 +1627,7 @@ namespace System.Net
                 DisconnectAsyncResult result = new DisconnectAsyncResult(this, connectionId);
 
                 uint statusCode = Interop.HttpApi.HttpWaitForDisconnect(
-                    _requestQueueHandle,
+                    RequestQueueHandle,
                     connectionId,
                     result.NativeOverlapped);
 
@@ -1739,7 +1716,7 @@ namespace System.Net
                         if (NetEventSource.IsEnabled) NetEventSource.Info(this, "Calling Interop.HttpApi.HttpSendHtthttpResponse");
                         statusCode =
                             Interop.HttpApi.HttpSendHttpResponse(
-                                _requestQueueHandle,
+                                RequestQueueHandle,
                                 requestId,
                                 0,
                                 &httpResponse,
@@ -1778,7 +1755,7 @@ namespace System.Net
             {
                 // if we fail to send a 401 something's seriously wrong, abort the request
                 if (NetEventSource.IsEnabled) NetEventSource.Info(this, "SendUnauthorized returned:" + statusCode);
-                HttpListenerContext.CancelRequest(_requestQueueHandle, requestId);
+                HttpListenerContext.CancelRequest(RequestQueueHandle, requestId);
             }
         }
 
@@ -1926,7 +1903,7 @@ namespace System.Net
 
                 // we can call the Unsafe API here, we won't ever call user code
                 _nativeOverlapped = httpListener.RequestQueueBoundHandle.AllocateNativeOverlapped(s_IOCallback, state: this, pinData: null);
-                if (NetEventSource.IsEnabled) NetEventSource.Info($"DisconnectAsyncResult: ThreadPoolBoundHandle.AllocateNativeOverlapped({httpListener._requestQueueBoundHandle}) -> {_nativeOverlapped->GetHashCode()}");
+                if (NetEventSource.IsEnabled) NetEventSource.Info($"DisconnectAsyncResult: ThreadPoolBoundHandle.AllocateNativeOverlapped({httpListener.RequestQueueBoundHandle}) -> {_nativeOverlapped->GetHashCode()}");
             }
 
             internal bool StartOwningDisconnectHandling()
@@ -1962,7 +1939,7 @@ namespace System.Net
             {
                 if (NetEventSource.IsEnabled) NetEventSource.Info(null, "_connectionId:" + asyncResult._connectionId);
 
-                asyncResult._httpListener._requestQueueBoundHandle.FreeNativeOverlapped(nativeOverlapped);
+                asyncResult._httpListener.RequestQueueBoundHandle.FreeNativeOverlapped(nativeOverlapped);
                 if (Interlocked.Exchange(ref asyncResult._ownershipState, 2) == 0)
                 {
                     asyncResult.HandleDisconnect();

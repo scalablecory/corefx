@@ -102,6 +102,7 @@
       <Link>Common\System\Net\WebSockets\WebSocketValidate.cs</Link>
     </Compile>
     <Compile Include="System\Net\Windows\CookieExtensions.cs" />
+    <Compile Include="System\Net\Windows\HttpSysSession.cs" />
   </ItemGroup>
   <ItemGroup Condition="'$(TargetsWindows)' == 'true' AND '$(ForceManagedImplementation)' != 'true' AND '$(TargetGroup)' != 'uap'">
     <Compile Include="System\Net\Windows\HttpListener.Windows.cs" />
