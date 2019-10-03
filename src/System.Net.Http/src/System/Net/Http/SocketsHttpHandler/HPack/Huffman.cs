@@ -166,58 +166,45 @@ namespace System.Net.Http.HPack
             (30, new[] { 10, 13, 22, 256 })
         };
 
-        /// <summary>
-        /// Gets the Huffman-encoded length of a string, in bytes.
-        /// </summary>
-        /// <param name="src">The source string to encode.</param>
-        /// <param name="lowerCase">If true, the string should be lower-cased.</param>
-        /// <returns>The number of bytes required to encode the string.</returns>
-        public static int GetEncodedLength(string src, bool lowerCase)
+        public static int GetByteCount(string src, bool lowerCase)
         {
-            int bits = GetEncodedLengthInBits(src, lowerCase);
-            return checked((bits + 7) / 8);
+            return (GetBitCount(src, lowerCase) + 7) / 8;
         }
 
-        /// <summary>
-        /// Gets the Huffman-encoded length of a string.
-        /// </summary>
-        /// <param name="src">The source string to encode.</param>
-        /// <param name="lowerCase">If true, the string should be lower-cased.</param>
-        /// <returns>The number of bytes required to encode the string.</returns>
-        public static int GetEncodedLength(ReadOnlySpan<string> src, string separator, bool lowerCase)
+        public static int GetByteCount(ReadOnlySpan<string> src, string separator, bool lowerCase)
         {
-            if (src.Length != 0)
-            {
-                checked
-                {
-                    int bits = GetEncodedLengthInBits(separator, lowerCase) * (src.Length - 1);
-
-                    foreach (string s in src)
-                    {
-                        bits += GetEncodedLengthInBits(s, lowerCase);
-                    }
-
-                    return (bits + 7) / 8;
-                }
-            }
-            else
+            if (src.Length == 0)
             {
                 return 0;
             }
+
+            int bits;
+
+            checked
+            {
+                bits = GetBitCount(separator, lowerCase) * (src.Length - 1);
+
+                foreach (string s in src)
+                {
+                    bits += GetBitCount(s, lowerCase);
+                }
+            }
+
+            return (bits + 7) / 8;
         }
 
-        private static int GetEncodedLengthInBits(string src, bool lowerCase)
+        private static int GetBitCount(string src, bool lowerCase)
         {
             int bits = 0;
 
-            foreach (char x in src)
+            foreach (char ch in src)
             {
-                if (x > 127)
+                if (ch > 127)
                 {
                     throw new HttpRequestException(SR.net_http_request_invalid_char_encoding);
                 }
 
-                byte idx = lowerCase ? HPackEncoder.ToLowerAscii(x) : (byte)x;
+                byte idx = lowerCase ? HPackEncoder.ToLowerAscii(ch) : (byte)ch;
                 bits = checked(bits + _encodingTable[idx].bitLength);
             }
 
@@ -230,7 +217,9 @@ namespace System.Net.Http.HPack
         /// <param name="src">The source string to encode.</param>
         /// <param name="lowerCase">If true, the string should be lower-cased. Header names should be lower-cased, while header values shouldn't be.</param>
         /// <param name="dst">The destination span to write the encoded value to.</param>
-        public static int Encode(string src, bool lowerCase, Span<byte> dst)
+        /// <param name="bytesWritten">When the method returns true, receives the number of bytes written. Otherwise, the number of bytes required.</param>
+        /// <returns>If true, <paramref name="src"/> was successfully Huffman encoded into <paramref name="dst"/>. Otherwise, <paramref name="dst"/> did not have enough space.</returns>
+        public static bool TryEncode(string src, bool lowerCase, Span<byte> dst, out int bytesWritten)
         {
             Debug.Assert(src != null);
 
@@ -239,7 +228,7 @@ namespace System.Net.Http.HPack
             int dstIdx = 0;
 
             (buffer, bufferLength, dstIdx) = EncodeHelper(src, lowerCase, dst, buffer, bufferLength, dstIdx);
-            return FlushEncodeBuffer(dst, buffer, bufferLength, dstIdx);
+            return FlushEncodeBuffer(dst, buffer, bufferLength, dstIdx, out bytesWritten);
         }
 
         /// <summary>
@@ -249,14 +238,17 @@ namespace System.Net.Http.HPack
         /// <param name="separator">A separator to concatenate between source strings.</param>
         /// <param name="lowerCase">If true, the string should be lower-cased. Header names should be lower-cased, while header values shouldn't be.</param>
         /// <param name="dst">The destination span to write the encoded value to.</param>
-        public static int Encode(ReadOnlySpan<string> src, string separator, bool lowerCase, Span<byte> dst)
+        /// <param name="bytesWritten">When the method returns true, receives the number of bytes written. Otherwise, the number of bytes required.</param>
+        /// <returns>If true, <paramref name="src"/> was successfully Huffman encoded into <paramref name="dst"/>. Otherwise, <paramref name="dst"/> did not have enough space.</returns>
+        public static bool TryEncode(ReadOnlyString<string> src, string separator, bool lowerCase, Span<byte> dst, out int bytesWritten)
         {
             Debug.Assert(src != null);
             Debug.Assert(separator != null);
 
             if (src.Length == 0)
             {
-                return 0;
+                bytesWritten = 0;
+                return true;
             }
 
             ulong buffer = 0;
@@ -271,14 +263,17 @@ namespace System.Net.Http.HPack
                 (buffer, bufferLength, dstIdx) = EncodeHelper(src[i], lowerCase, dst, buffer, bufferLength, dstIdx);
             }
 
-            return FlushEncodeBuffer(dst, buffer, bufferLength, dstIdx);
+            return FlushEncodeBuffer(dst, buffer, bufferLength, dstIdx, out bytesWritten);
         }
 
         private static (ulong buffer, int bufferLength, int dstIdx) EncodeHelper(string src, bool lowerCase, Span<byte> dst, ulong buffer, int bufferLength, int dstIdx)
         {
             foreach (char x in src)
             {
-                Debug.Assert(x <= 127, $"{nameof(GetEncodedLength)} should have validated that the string is ASCII.");
+                if (x > 127)
+                {
+                    throw new HttpRequestException(SR.net_http_request_invalid_char_encoding);
+                }
 
                 byte idx = lowerCase ? HPackEncoder.ToLowerAscii(x) : (byte)x;
 
@@ -289,9 +284,12 @@ namespace System.Net.Http.HPack
 
                 while (bufferLength >= 8)
                 {
-                    Debug.Assert(dstIdx < dst.Length, $"{nameof(Encode)} should only be called with a destination buffer of at least the size indicated by {nameof(GetEncodedLength)}.");
+                    if (dstIdx < dst.Length)
+                    {
+                        dst[dstIdx] = (byte)(buffer >> 56);
+                    }
 
-                    dst[dstIdx++] = (byte)(buffer >> 56);
+                    ++dstIdx;
                     buffer <<= 8;
                     bufferLength -= 8;
                 }
@@ -309,18 +307,23 @@ namespace System.Net.Http.HPack
             return (((ulong)code) << 32, bitLength);
         }
 
-        private static int FlushEncodeBuffer(Span<byte> dst, ulong buffer, int bufferLength, int dstIdx)
+        private static bool FlushEncodeBuffer(Span<byte> dst, ulong buffer, int bufferLength, int dstIdx, out int bytesWritten)
         {
             if (bufferLength != 0)
             {
-                Debug.Assert(dstIdx < dst.Length, $"{nameof(Encode)} should only be called with a destination buffer of at least the size indicated by {nameof(GetEncodedLength)}.");
+                if (dstIdx < dst.Length)
+                {
+                    // Fill any trailing bits with ones, per RFC
+                    buffer |= 0xFFFFFFFFFFFFFFFF >> bufferLength;
 
-                // Fill any trailing bits with ones, per RFC
-                buffer |= 0xFFFFFFFFFFFFFFFF >> bufferLength;
-                dst[dstIdx++] = (byte)(buffer >> 56);
+                    dst[dstIdx] = (byte)(buffer >> 56);
+                }
+
+                ++dstIdx;
             }
 
-            return dstIdx;
+            bytesWritten = dstIdx;
+            return dstIdx <= dst.Length;
         }
 
         /// <summary>

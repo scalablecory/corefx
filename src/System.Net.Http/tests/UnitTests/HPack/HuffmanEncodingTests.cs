@@ -15,17 +15,20 @@ namespace System.Net.Http.Unit.Tests.HPack
         [MemberData(nameof(GetConcatenateHeaderValuesData))]
         public void HuffmanEncode_ConcatenateHeaderValues_RoundTrip(string[] values, string separator, bool lowerCase)
         {
-            // Encode and check that our Encode and GetEncodedLength return equal values.
-            int expectedEncodedLength = Huffman.GetEncodedLength(values, separator, lowerCase);
+            int maximumLength = values.Sum(x => x.Length + separator.Length) * 2;
 
-            byte[] encodedBuffer = new byte[expectedEncodedLength];
-            int encodedLength = Huffman.Encode(values, separator, lowerCase, encodedBuffer);
+            byte[] encodedBuffer = new byte[1];
+            if (!Huffman.TryEncode(values, separator, lowerCase, encodedBuffer, out int encodedLength))
+            {
+                Array.Resize(ref encodedBuffer, encodedLength);
 
-            Assert.Equal(expectedEncodedLength, encodedLength);
+                bool huffmanEncodeSuccess = Huffman.TryEncode(values, separator, lowerCase, encodedBuffer, out int finalEncodedLength);
+                Assert.True(huffmanEncodeSuccess);
+                Assert.Equal(encodedLength, finalEncodedLength);
+            }
 
-            // Check that our decoded string matches what we expect.
             byte[] decodedBuffer = new byte[1];
-            int decodedLength = Huffman.Decode(encodedBuffer, ref decodedBuffer);
+            int decodedLength = Huffman.Decode(encodedBuffer.AsSpan(0, encodedLength), ref decodedBuffer);
             string decodedString = Encoding.ASCII.GetString(decodedBuffer.AsSpan(0, decodedLength));
 
             string expectedDecodedString = string.Join(separator, values);

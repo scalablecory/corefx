@@ -10,6 +10,9 @@ namespace System.Net.Http.HPack
 {
     internal class HPackEncoder
     {
+        private const int HuffmanOptimisticCutoff = 128;
+        private const int SingleByteOverheadStringLiteralMaxLength = 126;
+
         private IEnumerator<KeyValuePair<string, string>> _enumerator;
 
         public bool BeginEncode(IEnumerable<KeyValuePair<string, string>> headers, Span<byte> buffer, out int length)
@@ -215,7 +218,7 @@ namespace System.Net.Http.HPack
                 if (IntegerEncoder.Encode(index, 4, destination, out int indexLength))
                 {
                     Debug.Assert(indexLength >= 1);
-                    if (EncodeStringLiteral(value, destination.Slice(indexLength), out int nameLength))
+                    if (EncodeStringLiteral(value, lowerCase: false, destination.Slice(indexLength), out int nameLength))
                     {
                         bytesWritten = indexLength + nameLength;
                         return true;
@@ -283,7 +286,7 @@ namespace System.Net.Http.HPack
             if ((uint)destination.Length >= 3)
             {
                 destination[0] = 0;
-                if (EncodeLiteralHeaderName(name, destination.Slice(1), out int nameLength) &&
+                if (EncodeStringLiteral(name, lowerCase: true, destination.Slice(1), out int nameLength) &&
                     EncodeStringLiterals(values, separator, destination.Slice(1 + nameLength), out int valueLength))
                 {
                     bytesWritten = 1 + nameLength + valueLength;
@@ -322,7 +325,7 @@ namespace System.Net.Http.HPack
             if ((uint)destination.Length != 0)
             {
                 destination[0] = 0;
-                if (EncodeLiteralHeaderName(name, destination.Slice(1), out int nameLength))
+                if (EncodeStringLiteral(name, lowerCase: true, destination.Slice(1), out int nameLength))
                 {
                     bytesWritten = 1 + nameLength;
                     return true;
@@ -333,7 +336,22 @@ namespace System.Net.Http.HPack
             return false;
         }
 
-        private static bool EncodeLiteralHeaderName(string value, Span<byte> destination, out int bytesWritten)
+        /// <summary>
+        /// Determines the buffer size for optimistic Huffman encoding.
+        /// If the Huffman encoder needs more than this, the value either won't fit in the buffer or won't fit within a single length byte.
+        /// </summary>
+        private static int GetOptimisticHuffmanBufferSize(int valueLength, int destinationLength)
+        {
+            Debug.Assert(valueLength >= 0);
+            Debug.Assert(destinationLength > 0);
+
+            int optimisticBufferLength = destinationLength - 1;
+            optimisticBufferLength = Math.Clamp(valueLength - 1, 0, optimisticBufferLength);
+            optimisticBufferLength = Math.Min(optimisticBufferLength, SingleByteOverheadStringLiteralMaxLength);
+            return optimisticBufferLength;
+        }
+
+        public static bool EncodeStringLiteral(string value, bool lowerCase, Span<byte> destination, out int bytesWritten)
         {
             // From https://tools.ietf.org/html/rfc7541#section-5.2
             // ------------------------------------------------------
@@ -344,136 +362,83 @@ namespace System.Net.Http.HPack
             // |  String Data (Length octets)  |
             // +-------------------------------+
 
-            if (destination.Length != 0)
+            if (destination.Length == 0)
             {
-                int expectedHuffmanLength = Huffman.GetEncodedLength(value, lowerCase: true);
-                if (expectedHuffmanLength < value.Length)
+                bytesWritten = 0;
+                return false;
+            }
+
+            int integerLength, huffmanLength;
+
+            if (value.Length < HuffmanOptimisticCutoff)
+            {
+                int optimisticBufferLength = GetOptimisticHuffmanBufferSize(value.Length, destination.Length);
+
+                if (Huffman.TryEncode(value, lowerCase, destination.Slice(1, optimisticBufferLength), out huffmanLength))
                 {
+                    Debug.Assert(huffmanLength == Huffman.GetByteCount(value, lowerCase));
+
+                    // Successfully encoded optimistically, so we only have a 1-byte prefix.
                     destination[0] = 0x80;
-                    if (IntegerEncoder.Encode(expectedHuffmanLength, 7, destination, out int integerLength))
-                    {
-                        Debug.Assert(integerLength >= 1);
+                    bool integerSuccess = IntegerEncoder.Encode(huffmanLength, 7, destination, out integerLength);
+                    Debug.Assert(integerSuccess == true && integerLength == 1);
 
-                        destination = destination.Slice(integerLength);
-                        if (expectedHuffmanLength <= destination.Length)
-                        {
-                            int actualHuffmanLength = Huffman.Encode(value, lowerCase: true, destination);
-                            Debug.Assert(actualHuffmanLength == expectedHuffmanLength);
-
-                            bytesWritten = integerLength + actualHuffmanLength;
-                            return true;
-                        }
-                    }
-                }
-                else
-                {
-                    destination[0] = 0;
-                    if (IntegerEncoder.Encode(value.Length, 7, destination, out int integerLength))
-                    {
-                        Debug.Assert(integerLength >= 1);
-
-                        destination = destination.Slice(integerLength);
-                        if (value.Length <= destination.Length)
-                        {
-                            for (int i = 0; i < value.Length; i++)
-                            {
-                                char c = value[i];
-                                Debug.Assert(c <= 127, $"{nameof(Headers.HttpRequestHeaders)} should have prevented non-ASCII header names.");
-
-                                destination[i] = ToLowerAscii(c);
-                            }
-
-                            bytesWritten = integerLength + value.Length;
-                            return true;
-                        }
-                    }
+                    bytesWritten = integerLength + huffmanLength;
+                    return true;
                 }
             }
-
-            bytesWritten = 0;
-            return false;
-        }
-
-        /// <summary>
-        /// Encodes an uncompressed, headerless piece of a string literal, validating for ASCII.
-        /// </summary>
-        private static bool EncodeStringLiteralValue(string value, Span<byte> destination, out int bytesWritten)
-        {
-            if (value.Length <= destination.Length)
+            else
             {
-                for (int i = 0; i < value.Length; i++)
-                {
-                    char c = value[i];
-                    if ((c & 0xFF80) != 0)
-                    {
-                        throw new HttpRequestException(SR.net_http_request_invalid_char_encoding);
-                    }
-
-                    destination[i] = (byte)c;
-                }
-
-                bytesWritten = value.Length;
-                return true;
+                huffmanLength = Huffman.GetByteCount(value, lowerCase);
             }
 
-            bytesWritten = 0;
-            return false;
-        }
-
-        /// <summary>
-        /// Encodes a string literal, including envelope. Huffman-encodes if it would save space.
-        /// </summary>
-        public static bool EncodeStringLiteral(string value, Span<byte> destination, out int bytesWritten)
-        {
-            // From https://tools.ietf.org/html/rfc7541#section-5.2
-            // ------------------------------------------------------
-            //   0   1   2   3   4   5   6   7
-            // +---+---+---+---+---+---+---+---+
-            // | H |    String Length (7+)     |
-            // +---+---------------------------+
-            // |  String Data (Length octets)  |
-            // +-------------------------------+
-
-            if (destination.Length != 0)
+            if (huffmanLength < value.Length)
             {
-                int expectedHuffmanLength = Huffman.GetEncodedLength(value, lowerCase: false);
-                if (expectedHuffmanLength < value.Length)
+                // Large value found. It may need mroe than one byte to encode its length.
+
+                destination[0] = 0x80;
+                if (!IntegerEncoder.Encode(huffmanLength, 7, destination, out integerLength))
                 {
-                    destination[0] = 0x80;
-                    if (IntegerEncoder.Encode(expectedHuffmanLength, 7, destination, out int integerLength))
-                    {
-                        Debug.Assert(integerLength >= 1);
-
-                        destination = destination.Slice(integerLength);
-
-                        if (destination.Length >= expectedHuffmanLength)
-                        {
-                            int actualHuffmanLength = Huffman.Encode(value, lowerCase: false, destination);
-                            Debug.Assert(actualHuffmanLength == expectedHuffmanLength);
-
-                            bytesWritten = integerLength + actualHuffmanLength;
-                            return true;
-                        }
-                    }
+                    bytesWritten = 0;
+                    return false;
                 }
-                else
+
+                Debug.Assert(integerLength >= 1);
+
+                if (Huffman.TryEncode(value, lowerCase, destination.Slice(integerLength), out int actualHuffmanLength))
                 {
-                    destination[0] = 0;
-                    if (IntegerEncoder.Encode(value.Length, 7, destination, out int integerLength))
-                    {
-                        Debug.Assert(integerLength >= 1);
+                    Debug.Assert(actualHuffmanLength == huffmanLength);
 
-                        if (EncodeStringLiteralValue(value, destination.Slice(integerLength), out int valueLength))
-                        {
-                            bytesWritten = integerLength + valueLength;
-                            return true;
-                        }
-                    }
+                    bytesWritten = integerLength + actualHuffmanLength;
+                    return true;
                 }
+
+                bytesWritten = 0;
+                return false;
             }
 
-            bytesWritten = 0;
-            return false;
+            // Huffman would expand our data. Write it out uncompressed.
+
+            destination[0] = 0;
+            if (!IntegerEncoder.Encode(value.Length, 7, destination, out integerLength))
+            {
+                bytesWritten = 0;
+                return false;
+            }
+
+            Debug.Assert(integerLength >= 1);
+
+            destination = destination.Slice(integerLength);
+            if (value.Length > destination.Length)
+            {
+                bytesWritten = 0;
+                return false;
+            }
+
+            EncodeUncompressedStringLiteralPart(value, lowerCase, destination);
+
+            bytesWritten = integerLength + value.Length;
+            return true;
         }
 
         /// <summary>
@@ -485,11 +450,11 @@ namespace System.Net.Http.HPack
 
             if (values.Length == 0)
             {
-                return EncodeStringLiteral("", destination, out bytesWritten);
+                return EncodeStringLiteral("", lowerCase: false, destination, out bytesWritten);
             }
             else if (values.Length == 1)
             {
-                return EncodeStringLiteral(values[0], destination, out bytesWritten);
+                return EncodeStringLiteral(values[0], lowerCase: false, destination, out bytesWritten);
             }
 
             if (destination.Length == 0)
@@ -497,71 +462,111 @@ namespace System.Net.Http.HPack
                 return false;
             }
 
-            int valueLength = 0;
+            int valueLength;
 
             // Calculate length of all parts and separators.
-            foreach (string part in values)
+            checked
             {
-                valueLength = checked(valueLength + part.Length);
+                valueLength = (values.Length - 1) * separator.Length;
+                foreach (string valuePart in values)
+                {
+                    valueLength += valuePart.Length;
+                }
             }
 
-            valueLength = checked(valueLength + (values.Length - 1) * separator.Length);
+            int integerLength, huffmanLength;
 
-            int expectedHuffmanLength = Huffman.GetEncodedLength(values, separator, lowerCase: false);
-            int integerLength;
-
-            if (expectedHuffmanLength < valueLength)
+            if (valueLength < HuffmanOptimisticCutoff)
             {
+                int optimisticBufferLength = GetOptimisticHuffmanBufferSize(valueLength, destination.Length);
+
+                if (Huffman.TryEncode(values, separator, lowerCase: false, destination.Slice(1, optimisticBufferLength), out huffmanLength))
+                {
+                    Debug.Assert(huffmanLength == Huffman.GetByteCount(values, separator, lowerCase: false));
+
+                    // Successfully encoded optimistically. Write out a single-byte length prefix.
+                    destination[0] = 0x80;
+                    bool integerSuccess = IntegerEncoder.Encode(huffmanLength, 7, destination, out integerLength);
+                    Debug.Assert(integerSuccess == true && integerLength == 1);
+
+                    bytesWritten = integerLength + huffmanLength;
+                    return true;
+                }
+            }
+            else
+            {
+                huffmanLength = Huffman.GetByteCount(values, separator, lowerCase: false);
+            }
+
+            if (huffmanLength < valueLength)
+            {
+                // Large value found. Length prefix may be more than one byte.
                 destination[0] = 0x80;
-                if (!IntegerEncoder.Encode(expectedHuffmanLength, 7, destination, out integerLength))
+                if (!IntegerEncoder.Encode(huffmanLength, 7, destination, out integerLength))
                 {
+                    bytesWritten = 0;
                     return false;
                 }
 
-                Debug.Assert(integerLength > 0);
+                Debug.Assert(integerLength >= 1);
 
-                destination = destination.Slice(integerLength);
-                if (destination.Length < expectedHuffmanLength)
+                if (Huffman.TryEncode(values, separator, lowerCase: false, destination.Slice(integerLength), out int actualHuffmanLength))
                 {
-                    return false;
+                    Debug.Assert(actualHuffmanLength == huffmanLength);
+                    bytesWritten = integerLength + actualHuffmanLength;
+                    return true;
                 }
 
-                int actualHuffmanLength = Huffman.Encode(values, separator, lowerCase: false, destination);
-                Debug.Assert(actualHuffmanLength == expectedHuffmanLength);
-
-                bytesWritten = integerLength + actualHuffmanLength;
-                return true;
+                bytesWritten = 0;
+                return false;
             }
 
-            // Huffman coding expands rather than compresses the buffer. Encode without compression.
+            // Huffman would expand our data. Write it out uncompressed.
             destination[0] = 0;
             if (!IntegerEncoder.Encode(valueLength, 7, destination, out integerLength))
             {
+                bytesWritten = 0;
                 return false;
             }
 
             Debug.Assert(integerLength >= 1);
 
-            int encodedLength = 0;
-            for (int j = 0; j < values.Length; j++)
+            destination = destination.Slice(integerLength);
+            if (valueLength > destination.Length)
             {
-                if (j != 0 && !EncodeStringLiteralValue(separator, destination.Slice(integerLength), out encodedLength))
-                {
-                    return false;
-                }
-
-                integerLength += encodedLength;
-
-                if (!EncodeStringLiteralValue(values[j], destination.Slice(integerLength), out encodedLength))
-                {
-                    return false;
-                }
-
-                integerLength += encodedLength;
+                bytesWritten = 0;
+                return false;
             }
 
-            bytesWritten = integerLength;
+            string part = values[0];
+            EncodeUncompressedStringLiteralPart(part, lowerCase: false, destination);
+            int offset = part.Length;
+
+            for (int i = 1; i < values.Length; ++i)
+            {
+                EncodeUncompressedStringLiteralPart(separator, lowerCase: false, destination.Slice(offset));
+                offset += separator.Length;
+
+                part = values[i];
+                EncodeUncompressedStringLiteralPart(part, lowerCase: false, destination.Slice(offset));
+                offset += part.Length;
+            }
+
+            Debug.Assert(offset == valueLength);
+
+            bytesWritten = integerLength + offset;
             return true;
+        }
+
+        private static void EncodeUncompressedStringLiteralPart(string value, bool lowerCase, Span<byte> dst)
+        {
+            for (int i = 0; i < value.Length; ++i)
+            {
+                char c = value[i];
+                Debug.Assert(c <= 127, $"{nameof(Headers.HttpRequestHeaders)} should have prevented non-ASCII headers.");
+
+                dst[i] = lowerCase ? ToLowerAscii(c) : (byte)c;
+            }
         }
 
         /// <summary>

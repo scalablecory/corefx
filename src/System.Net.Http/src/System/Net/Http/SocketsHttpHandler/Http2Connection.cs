@@ -927,7 +927,7 @@ namespace System.Net.Http
             if (NetEventSource.IsEnabled) Trace($"{nameof(value)}={value}");
 
             int bytesWritten;
-            while (!HPackEncoder.EncodeStringLiteral(value, _headerBuffer.AvailableSpan, out bytesWritten))
+            while (!HPackEncoder.EncodeStringLiteral(value, lowerCase: false, _headerBuffer.AvailableSpan, out bytesWritten))
             {
                 _headerBuffer.EnsureAvailableSpace(_headerBuffer.AvailableLength + 1);
             }
