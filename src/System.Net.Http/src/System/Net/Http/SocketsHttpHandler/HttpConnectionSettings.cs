@@ -3,7 +3,11 @@
 // See the LICENSE file in the project root for more information.
 
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.Net.Security;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace System.Net.Http
 {
@@ -47,6 +51,16 @@ namespace System.Net.Http
         internal SslClientAuthenticationOptions _sslOptions;
 
         internal IDictionary<string, object> _properties;
+
+        internal Func<Uri, CancellationToken, ValueTask<Stream>> _customConnect = DefaultConnect;
+
+        private static ValueTask<Stream> DefaultConnect(Uri uri, CancellationToken cancellationToken)
+        {
+            Debug.Assert(uri != null);
+            Debug.Assert(uri.IsAbsoluteUri);
+            Debug.Assert(uri.Host != null);
+            return ConnectHelper.ConnectAsync(uri.Host, uri.Port, cancellationToken);
+        }
 
         public HttpConnectionSettings()
         {
