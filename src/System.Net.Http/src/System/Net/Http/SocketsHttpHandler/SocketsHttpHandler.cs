@@ -33,7 +33,7 @@ namespace System.Net.Http
             }
         }
 
-        public Func<string, int, CancellationToken, ValueTask<Stream>> ConnectCallback
+        public Func<HttpConnectionInfo, CancellationToken, ValueTask<Stream>> ConnectCallback
         {
             get => _settings._customConnect;
             set

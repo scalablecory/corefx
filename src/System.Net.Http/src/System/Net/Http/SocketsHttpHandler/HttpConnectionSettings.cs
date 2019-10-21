@@ -52,7 +52,7 @@ namespace System.Net.Http
 
         internal IDictionary<string, object> _properties;
 
-        internal Func<string, int, CancellationToken, ValueTask<Stream>> _customConnect = ConnectHelper.ConnectAsync;
+        internal Func<HttpConnectionInfo, CancellationToken, ValueTask<Stream>> _customConnect = (info, cancellationToken) => ConnectHelper.ConnectAsync(info.Hostname, info.Port, cancellationToken);
 
         public HttpConnectionSettings()
         {

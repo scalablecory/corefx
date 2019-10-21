@@ -28,6 +28,8 @@ namespace System.Net.Http
         private readonly string _host;
         private readonly int _port;
         private readonly Uri _proxyUri;
+        private readonly string _uriHost;
+        private readonly int _uriPort;
         internal readonly byte[] _encodedAuthorityHostHeader;
 
         /// <summary>List of idle connections stored in the pool.</summary>
@@ -60,12 +62,14 @@ namespace System.Net.Http
 
         /// <summary>Initializes the pool.</summary>
         /// <param name="maxConnections">The maximum number of connections allowed to be associated with the pool at any given time.</param>
-        public HttpConnectionPool(HttpConnectionPoolManager poolManager, HttpConnectionKind kind, string host, int port, string sslHostName, Uri proxyUri, int maxConnections)
+        public HttpConnectionPool(HttpConnectionPoolManager poolManager, HttpConnectionKind kind, string host, int port, string uriHost, int uriPort, string sslHostName, Uri proxyUri, int maxConnections)
         {
             _poolManager = poolManager;
             _kind = kind;
             _host = host;
             _port = port;
+            _uriHost = uriHost;
+            _uriPort = uriPort;
             _proxyUri = proxyUri;
             _maxConnections = maxConnections;
 
@@ -622,11 +626,25 @@ namespace System.Net.Http
                     case HttpConnectionKind.Http:
                     case HttpConnectionKind.Https:
                     case HttpConnectionKind.ProxyConnect:
-                        stream = await Settings._customConnect(_host, _port, cancellationToken).ConfigureAwait(false);
+                        var info = new HttpConnectionInfo
+                        {
+                            Hostname = _host,
+                            Port = _port,
+                            UriHostname = _uriHost,
+                            UriPort = _uriPort
+                        };
+                        stream = await Settings._customConnect(info, cancellationToken).ConfigureAwait(false);
                         break;
 
                     case HttpConnectionKind.Proxy:
-                        stream = await Settings._customConnect(_proxyUri.IdnHost, _proxyUri.Port, cancellationToken).ConfigureAwait(false);
+                        info = new HttpConnectionInfo
+                        {
+                            Hostname = _proxyUri.IdnHost,
+                            Port = _proxyUri.Port,
+                            UriHostname = _uriHost,
+                            UriPort = _uriPort
+                        };
+                        stream = await Settings._customConnect(info, cancellationToken).ConfigureAwait(false);
                         break;
 
                     case HttpConnectionKind.ProxyTunnel:
@@ -692,7 +710,7 @@ namespace System.Net.Http
                 tunnelRequest.Headers.TryAddWithoutValidation(HttpKnownHeaderNames.UserAgent, values);
             }
 
-            HttpResponseMessage tunnelResponse = await _poolManager.SendProxyConnectAsync(tunnelRequest, _proxyUri, cancellationToken).ConfigureAwait(false);
+            HttpResponseMessage tunnelResponse = await _poolManager.SendProxyConnectAsync(tunnelRequest, _proxyUri, _uriHost, _uriPort, cancellationToken).ConfigureAwait(false);
 
             if (tunnelResponse.StatusCode != HttpStatusCode.OK)
             {

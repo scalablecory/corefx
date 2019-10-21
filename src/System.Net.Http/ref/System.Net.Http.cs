@@ -115,6 +115,13 @@ namespace System.Net.Http
         ResponseContentRead = 0,
         ResponseHeadersRead = 1,
     }
+    public class HttpConnectionInfo
+    {
+        public string Hostname { get { throw null; } }
+        public int Port { get { throw null; } }
+        public string UriHostname { get { throw null; } }
+        public int UriPort { get { throw null; } }
+    }
     public abstract partial class HttpContent : System.IDisposable
     {
         protected HttpContent() { }
@@ -262,7 +269,7 @@ namespace System.Net.Http
         public System.Net.IWebProxy Proxy { get { throw null; } set { } }
         public System.TimeSpan ResponseDrainTimeout { get { throw null; } set { } }
         public System.Net.Security.SslClientAuthenticationOptions SslOptions { get { throw null; } set { } }
-        public System.Func<string, int, System.Threading.CancellationToken, System.Threading.Tasks.ValueTask<System.IO.Stream>> ConnectCallback {  get { throw null; } set { } }
+        public System.Func<System.Net.Http.HttpConnectionInfo, System.Threading.CancellationToken, System.Threading.Tasks.ValueTask<System.IO.Stream>> ConnectCallback {  get { throw null; } set { } }
         public bool UseCookies { get { throw null; } set { } }
         public bool UseProxy { get { throw null; } set { } }
         protected override void Dispose(bool disposing) { }

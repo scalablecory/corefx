@@ -221,9 +221,9 @@ namespace System.Net.Http
             }
         }
 
-        public Task<HttpResponseMessage> SendAsyncCore(HttpRequestMessage request, Uri proxyUri, bool doRequestAuth, bool isProxyConnect, CancellationToken cancellationToken)
+        public Task<HttpResponseMessage> SendAsyncCore(HttpRequestMessage request, Uri proxyUri, bool doRequestAuth, string proxyConnectUriHost, int proxyConnectUriPort, CancellationToken cancellationToken)
         {
-            HttpConnectionKey key = GetConnectionKey(request, proxyUri, isProxyConnect);
+            HttpConnectionKey key = GetConnectionKey(request, proxyUri, proxyConnectUriHost != null);
 
             HttpConnectionPool pool;
             while (!_pools.TryGetValue(key, out pool))
@@ -232,7 +232,10 @@ namespace System.Net.Http
                 // So, we need to add them manually for now.
                 bool isNonNullIPv6address = key.Host != null && request.RequestUri.HostNameType == UriHostNameType.IPv6;
 
-                pool = new HttpConnectionPool(this, key.Kind, isNonNullIPv6address ? "[" + key.Host + "]" : key.Host, key.Port, key.SslHostName, key.ProxyUri, _maxConnectionsPerServer);
+                string uriHost = proxyConnectUriHost ?? key.Host;
+                int uriPort = proxyConnectUriHost != null ? proxyConnectUriPort : key.Port;
+
+                pool = new HttpConnectionPool(this, key.Kind, isNonNullIPv6address ? "[" + key.Host + "]" : key.Host, key.Port, uriHost, uriPort, key.SslHostName, key.ProxyUri, _maxConnectionsPerServer);
 
                 if (_cleaningTimer == null)
                 {
@@ -264,16 +267,16 @@ namespace System.Net.Http
             return pool.SendAsync(request, doRequestAuth, cancellationToken);
         }
 
-        public Task<HttpResponseMessage> SendProxyConnectAsync(HttpRequestMessage request, Uri proxyUri, CancellationToken cancellationToken)
+        public Task<HttpResponseMessage> SendProxyConnectAsync(HttpRequestMessage request, Uri proxyUri, string uriHost, int uriPort, CancellationToken cancellationToken)
         {
-            return SendAsyncCore(request, proxyUri, doRequestAuth: false, isProxyConnect: true, cancellationToken);
+            return SendAsyncCore(request, proxyUri, doRequestAuth: false, uriHost, uriPort, cancellationToken);
         }
 
         public Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, bool doRequestAuth, CancellationToken cancellationToken)
         {
             if (_proxy == null)
             {
-                return SendAsyncCore(request, null, doRequestAuth, isProxyConnect: false, cancellationToken);
+                return SendAsyncCore(request, null, doRequestAuth, proxyConnectUriHost: null, proxyConnectUriPort: 0, cancellationToken);
             }
 
             // Do proxy lookup.
@@ -309,7 +312,7 @@ namespace System.Net.Http
                 throw new NotSupportedException(SR.net_http_invalid_proxy_scheme);
             }
 
-            return SendAsyncCore(request, proxyUri, doRequestAuth, isProxyConnect: false, cancellationToken);
+            return SendAsyncCore(request, proxyUri, doRequestAuth, proxyConnectUriHost: null, proxyConnectUriPort: 0, cancellationToken);
         }
 
         /// <summary>
@@ -325,7 +328,7 @@ namespace System.Net.Http
             {
                 try
                 {
-                    return await SendAsyncCore(request, firstProxy, doRequestAuth, isProxyConnect: false, cancellationToken).ConfigureAwait(false);
+                    return await SendAsyncCore(request, firstProxy, doRequestAuth, proxyConnectUriHost: null, proxyConnectUriPort: 0, cancellationToken).ConfigureAwait(false);
                 }
                 catch (HttpRequestException ex) when (ex.AllowRetry != RequestRetryType.NoRetry)
                 {

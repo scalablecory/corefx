@@ -19,6 +19,7 @@ using Microsoft.DotNet.XUnitExtensions;
 using Microsoft.DotNet.RemoteExecutor;
 using Xunit;
 using Xunit.Abstractions;
+using System.Net.Security;
 
 namespace System.Net.Http.Functional.Tests
 {
@@ -2690,40 +2691,68 @@ namespace System.Net.Http.Functional.Tests
             }
         }
 
-        [Fact]
-        public async Task ConnectCallback_Success()
+        [Theory]
+        [InlineData(false, false)]
+        [InlineData(false, true)] // non-CONNECT
+        [InlineData(true, false)]
+        [InlineData(true, true)] // CONNECT
+        public async Task ConnectCallback_Success(bool useHttps, bool useProxy)
         {
             if (!UseSocketsHttpHandler || UseHttp2) return;
 
             await LoopbackServer.CreateClientAndServerAsync(
                 async uri =>
                 {
-                    bool dialerCalled = false;
+                    HttpConnectionInfo dialerConnectInfo = null;
 
-                    Func<string, int, CancellationToken, ValueTask<Stream>> dialer = (host, port, token) =>
+                    Func<HttpConnectionInfo, CancellationToken, ValueTask<Stream>> dialer = async (connectionInfo, token) =>
                     {
-                        dialerCalled = true;
+                        dialerConnectInfo = connectionInfo;
 
-                        byte[] buffer = Encoding.ASCII.GetBytes("HTTP/1.1 200 OK\r\nConnection: close\r\nContent-Length: 3\r\nContent-Type: text/plain\r\n\r\nfoo");
+                        string responseText = "HTTP/1.1 200 OK\r\nConnection: close\r\nContent-Length: 3\r\nContent-Type: text/plain\r\n\r\nfoo";
+                        var baseStream = new MemoryStream(Encoding.ASCII.GetBytes(responseText));
 
-                        var stream = new MemoryStream(buffer);
-                        var delegateStream = new DelegateStream(canReadFunc: () => true, canWriteFunc: () => true, readFunc: stream.Read, writeFunc: delegate { });
-                        return new ValueTask<Stream>(delegateStream);
+                        Stream stream = new DelegateStream(canReadFunc: () => true, canWriteFunc: () => true, readFunc: baseStream.Read, writeFunc: delegate { });
+
+                        if (useHttps)
+                        {
+                            var opts = new LoopbackServer.Options();
+                            var tls = new SslStream(stream, leaveInnerStreamOpen: false, delegate { return true; });
+
+                            using System.Security.Cryptography.X509Certificates.X509Certificate2 cert = Configuration.Certificates.GetServerCertificate();
+                            await tls.AuthenticateAsServerAsync(cert, clientCertificateRequired: true, enabledSslProtocols: opts.SslProtocols, checkCertificateRevocation: false);
+
+                            stream = tls;
+                        }
+
+                        return stream;
                     };
 
+                    using var proxyServer = LoopbackProxyServer.Create();
                     using var handler = new SocketsHttpHandler();
+                    using HttpClient client = CreateHttpClient(handler);
+
                     handler.ConnectCallback = dialer;
 
-                    using HttpClient client = CreateHttpClient(handler);
+                    if (useProxy)
+                    {
+                        handler.Proxy = new WebProxy(proxyServer.Uri);
+                    }
 
                     // If GetStringAsync fails with a connect timeout, the dialer is not getting called -- it's hitting a loopback socket that will never accept.
                     string result = await client.GetStringAsync(uri);
 
                     Assert.Equal("foo", result);
-                    Assert.True(dialerCalled);
+                    Assert.Equal(0, proxyServer.Connections);
+
+                    Assert.NotNull(dialerConnectInfo);
+                    Assert.Equal(uri.IdnHost, dialerConnectInfo.UriHostname);
+                    Assert.Equal(uri.Port, dialerConnectInfo.UriPort);
+                    Assert.Equal(useProxy ? proxyServer.Uri.IdnHost : uri.IdnHost, dialerConnectInfo.Hostname);
+                    Assert.Equal(useProxy ? proxyServer.Uri.Port : uri.Port, dialerConnectInfo.Port);
                 },
                 server => Task.CompletedTask,
-                new LoopbackServer.Options { ListenBacklog = 0 });
+                new LoopbackServer.Options { ListenBacklog = 0, UseSsl = useHttps });
         }
     }
 }
