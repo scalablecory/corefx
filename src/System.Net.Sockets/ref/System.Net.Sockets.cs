@@ -5,6 +5,21 @@
 // Changes to this file must follow the http://aka.ms/api-review process.
 // ------------------------------------------------------------------------------
 
+namespace System.Net.Connections
+{
+    public sealed partial class SocketsConnectionFactory : System.IAsyncDisposable, System.Net.Connections.IConnectionFactory
+    {
+        public SocketsConnectionFactory(System.Net.Sockets.SocketType socketType, System.Net.Sockets.ProtocolType protocolType) { }
+        public System.Threading.Tasks.ValueTask<System.Net.Connections.IConnection> ConnectAsync(System.Net.EndPoint endPoint, System.Net.Connections.IConnectionProperties options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) { throw null; }
+        public System.Threading.Tasks.ValueTask DisposeAsync() { throw null; }
+    }
+    public sealed partial class SocketsConnectionListenerFactory : System.IAsyncDisposable, System.Net.Connections.IConnectionListenerFactory
+    {
+        public SocketsConnectionListenerFactory(System.Net.Sockets.SocketType socketType, System.Net.Sockets.ProtocolType protocolType) { }
+        public System.Threading.Tasks.ValueTask<System.Net.Connections.IConnectionListener> BindAsync(System.Net.EndPoint endPoint, System.Net.Connections.IConnectionProperties options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) { throw null; }
+        public System.Threading.Tasks.ValueTask DisposeAsync() { throw null; }
+    }
+}
 namespace System.Net.Sockets
 {
     public enum IOControlCode : long

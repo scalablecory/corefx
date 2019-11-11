@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for more information.
 
 using System.Collections.Generic;
+using System.Net.Connections;
 using System.Net.Security;
 using System.Threading;
 using System.Threading.Tasks;
@@ -267,6 +268,16 @@ namespace System.Net.Http
 
                 CheckDisposedOrStarted();
                 _settings._expect100ContinueTimeout = value;
+            }
+        }
+
+        public IConnectionFactory ConnectionFactory
+        {
+            get => _settings._connectionFactory;
+            set
+            {
+                CheckDisposedOrStarted();
+                _settings._connectionFactory = value;
             }
         }
 

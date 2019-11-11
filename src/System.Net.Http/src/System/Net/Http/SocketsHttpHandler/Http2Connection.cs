@@ -6,6 +6,7 @@ using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Net.Connections;
 using System.Net.Http.Headers;
 using System.Net.Http.HPack;
 using System.Net.Security;
@@ -19,6 +20,7 @@ namespace System.Net.Http
     internal sealed partial class Http2Connection : HttpConnectionBase, IDisposable
     {
         private readonly HttpConnectionPool _pool;
+        private readonly IConnection _connection;
         private readonly Stream _stream;
 
         // NOTE: These are mutable structs; do not make these readonly.
@@ -100,10 +102,11 @@ namespace System.Net.Http
         // this value, so this is not a hard maximum size.
         private const int UnflushedOutgoingBufferSize = 32 * 1024;
 
-        public Http2Connection(HttpConnectionPool pool, Stream stream)
+        public Http2Connection(HttpConnectionPool pool, IConnection connection)
         {
             _pool = pool;
-            _stream = stream;
+            _connection = connection;
+            _stream = connection.Stream;
             _incomingBuffer = new ArrayBuffer(InitialConnectionBufferSize);
             _outgoingBuffer = new ArrayBuffer(InitialConnectionBufferSize);
             _headerBuffer = new ArrayBuffer(InitialConnectionBufferSize);
@@ -122,7 +125,7 @@ namespace System.Net.Http
             _maxConcurrentStreams = int.MaxValue;
             _pendingWindowUpdate = 0;
 
-            if (NetEventSource.IsEnabled) TraceConnection(stream);
+            if (NetEventSource.IsEnabled) TraceConnection(_connection);
         }
 
         private object SyncObject => _httpStreams;
@@ -1504,6 +1507,7 @@ namespace System.Net.Http
 
             // Do shutdown.
             _stream.Close();
+            _connection.DisposeAsync().GetAwaiter().GetResult(); // TODO: make this method async.
 
             _connectionWindow.Dispose();
             _concurrentStreams.Dispose();

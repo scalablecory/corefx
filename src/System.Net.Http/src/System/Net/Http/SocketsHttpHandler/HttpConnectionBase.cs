@@ -4,6 +4,7 @@
 
 using System.IO;
 using System.Net.Security;
+using System.Net.Connections;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,9 +16,9 @@ namespace System.Net.Http
         public abstract Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken);
         public abstract void Trace(string message, [CallerMemberName] string memberName = null);
 
-        protected void TraceConnection(Stream stream)
+        protected void TraceConnection(IConnection connection)
         {
-            if (stream is SslStream sslStream)
+            if (connection.ConnectionProperties.TryGet(out ISslConnectionProperties sslStream))
             {
                 Trace(
                     $"{this}. " +

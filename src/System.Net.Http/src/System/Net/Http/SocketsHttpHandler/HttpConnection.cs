@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Net.Connections;
 using System.Net.Http.Headers;
 using System.Net.Security;
 using System.Net.Sockets;
@@ -44,6 +45,7 @@ namespace System.Net.Http
         private static readonly ulong s_http11Bytes = BitConverter.ToUInt64(Encoding.ASCII.GetBytes("HTTP/1.1"));
 
         private readonly HttpConnectionPool _pool;
+        internal readonly IConnection _connection;
         private readonly Socket _socket; // used for polling; _stream should be used for all reading/writing. _stream owns disposal.
         private readonly Stream _stream;
         private readonly TransportContext _transportContext;
@@ -69,24 +71,26 @@ namespace System.Net.Http
 
         public HttpConnection(
             HttpConnectionPool pool,
-            Socket socket,
-            Stream stream,
-            TransportContext transportContext)
+            IConnection connection)
         {
             Debug.Assert(pool != null);
-            Debug.Assert(stream != null);
+            Debug.Assert(connection != null);
 
             _pool = pool;
-            _socket = socket; // may be null in cases where we couldn't easily get the underlying socket
-            _stream = stream;
-            _transportContext = transportContext;
+            _connection = connection;
+            _stream = connection.Stream;
+            connection.ConnectionProperties.TryGet(out _socket); // may be null in cases where a user's custom connection factory does not provide a Socket.
+            if (connection.ConnectionProperties.TryGet(out ISslConnectionProperties sslProperties))
+            {
+                _transportContext = sslProperties.TransportContext;
+            }
 
             _writeBuffer = new byte[InitialWriteBufferSize];
             _readBuffer = new byte[InitialReadBufferSize];
 
             _weakThisRef = new WeakReference<HttpConnection>(this);
 
-            if (NetEventSource.IsEnabled) TraceConnection(_stream);
+            if (NetEventSource.IsEnabled) TraceConnection(_connection);
         }
 
         public void Dispose() => Dispose(disposing: true);
@@ -102,7 +106,9 @@ namespace System.Net.Http
                 if (disposing)
                 {
                     GC.SuppressFinalize(this);
-                    _stream.Dispose();
+
+                    // TODO: make this async.
+                    _connection.DisposeAsync().GetAwaiter().GetResult();
 
                     // Eat any exceptions from the read-ahead task.  We don't need to log, as we expect
                     // failures from this task due to closing the connection while a read is in progress.
@@ -1832,7 +1838,7 @@ namespace System.Net.Http
 
     internal sealed class HttpConnectionWithFinalizer : HttpConnection
     {
-        public HttpConnectionWithFinalizer(HttpConnectionPool pool, Socket socket, Stream stream, TransportContext transportContext) : base(pool, socket, stream, transportContext) { }
+        public HttpConnectionWithFinalizer(HttpConnectionPool pool, IConnection connection) : base(pool, connection) { }
 
         // This class is separated from HttpConnection so we only pay the price of having a finalizer
         // when it's actually needed, e.g. when MaxConnectionsPerServer is enabled.

@@ -204,6 +204,15 @@ namespace System.Net.Http
         public System.Net.Http.HttpResponseMessage EnsureSuccessStatusCode() { throw null; }
         public override string ToString() { throw null; }
     }
+    public sealed partial class HttpsConnectionMiddleware : System.Net.Connections.SslConnectionFactory
+    {
+        public HttpsConnectionMiddleware(System.Net.Connections.IConnectionFactory baseFactory) : base (default(System.Net.Connections.IConnectionFactory), default) { }
+    }
+    public partial interface IHttpConnectProperties
+    {
+        System.Net.Http.HttpRequestMessage FirstRequest { get; }
+        System.Uri ProxyUri { get; }
+    }
     public abstract partial class MessageProcessingHandler : System.Net.Http.DelegatingHandler
     {
         protected MessageProcessingHandler() { }
@@ -245,6 +254,7 @@ namespace System.Net.Http
         public SocketsHttpHandler() { }
         public bool AllowAutoRedirect { get { throw null; } set { } }
         public System.Net.DecompressionMethods AutomaticDecompression { get { throw null; } set { } }
+        public System.Net.Connections.IConnectionFactory ConnectionFactory { get { throw null; } set { } }
         public System.TimeSpan ConnectTimeout { get { throw null; } set { } }
         public System.Net.CookieContainer CookieContainer { get { throw null; } set { } }
         public System.Net.ICredentials Credentials { get { throw null; } set { } }

@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using System.IO;
+using System.Net.Connections;
 using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
 using System.Security.Authentication;
@@ -39,7 +40,7 @@ namespace System.Net.Security
     internal delegate X509Certificate LocalCertSelectionCallback(string targetHost, X509CertificateCollection localCertificates, X509Certificate2 remoteCertificate, string[] acceptableIssuers);
     internal delegate X509Certificate ServerCertSelectionCallback(string hostName);
 
-    public partial class SslStream : AuthenticatedStream
+    public partial class SslStream : AuthenticatedStream, ISslConnectionProperties
     {
         /// <summary>Set as the _exception when the instance is disposed.</summary>
         private static readonly ExceptionDispatchInfo s_disposedSentinel = ExceptionDispatchInfo.Capture(new ObjectDisposedException(nameof(SslStream), (string)null));

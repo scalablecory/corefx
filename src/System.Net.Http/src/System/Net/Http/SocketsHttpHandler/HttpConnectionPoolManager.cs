@@ -5,6 +5,8 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Net.Connections;
+using System.Net.Sockets;
 using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -42,6 +44,7 @@ namespace System.Net.Http
         private readonly HttpConnectionSettings _settings;
         private readonly IWebProxy _proxy;
         private readonly ICredentials _proxyCredentials;
+        internal readonly IConnectionFactory _tcpConnectionFactory;
 
         /// <summary>
         /// Keeps track of whether or not the cleanup timer is running. It helps us avoid the expensive
@@ -128,6 +131,18 @@ namespace System.Net.Http
                     _proxyCredentials = _proxy.Credentials ?? settings._defaultProxyCredentials;
                 }
             }
+
+            // Setup connection factory base. Either use the user's custom connection factory, or sockets.
+            _tcpConnectionFactory =
+                settings._connectionFactory != null
+                ? (IConnectionFactory)new EatDisposeConnectionFactory(settings._connectionFactory)
+                : new SocketsConnectionFactory(SocketType.Stream, ProtocolType.Tcp);
+
+            // Middleware that selects which endpoint to connect to, routing through proxies.
+            _tcpConnectionFactory = new TransportSelectionMiddleware(_tcpConnectionFactory);
+
+            // Middleware to setup TLS. If the user's custom connection factory alraedy sets up TLS, it's a no-op. Otherwise, it does it for them.
+            _tcpConnectionFactory = new HttpsConnectionMiddleware(_tcpConnectionFactory);
         }
 
         public HttpConnectionSettings Settings => _settings;

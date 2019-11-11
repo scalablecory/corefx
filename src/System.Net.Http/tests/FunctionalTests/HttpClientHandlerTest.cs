@@ -19,6 +19,7 @@ using Microsoft.DotNet.XUnitExtensions;
 using Microsoft.DotNet.RemoteExecutor;
 using Xunit;
 using Xunit.Abstractions;
+using System.Net.Connections;
 
 namespace System.Net.Http.Functional.Tests
 {
@@ -2562,5 +2563,32 @@ namespace System.Net.Http.Functional.Tests
                 await Assert.ThrowsAsync<HttpRequestException>(() => client.GetStringAsync(invalidUri));
             }
         }
+
+        //[Fact]
+        //public async Task GetAsync_TcpConnectFactory_Success()
+        //{
+        //    if (!UseSocketsHttpHandler)
+        //    {
+        //        return;
+        //    }
+
+        //    await using IConnectionFactory connectionFactory = CreateConnectionFactory();
+        //    using SocketsHttpHandler handler = new SocketsHttpHandler { ConnectionFactory = connectionFactory };
+        //    using HttpClient client = CreateHttpClient(handler);
+
+        //    using HttpResponseMessage response = await client.GetAsync("http://contoso.com/");
+
+        //    //TODO: actual test.
+        //    Assert.True(response.IsSuccessStatusCode);
+
+        //    static IConnectionFactory CreateConnectionFactory()
+        //    {
+        //        IConnectionFactory factory = new SocketsConnectionFactory(SocketType.Stream, ProtocolType.Tcp);
+        //        factory = new BandwidthMonitoringMiddleware(factory);
+        //        factory = new HttpsConnectionMiddleware(factory);
+        //        factory = new ClearTextMonitoringMiddleware(factory);
+        //        return factory;
+        //    }
+        //}
     }
 }

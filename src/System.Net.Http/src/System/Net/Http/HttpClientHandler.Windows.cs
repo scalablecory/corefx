@@ -386,7 +386,7 @@ namespace System.Net.Http
             {
                 return _winHttpHandler != null ?
                     _winHttpHandler.ServerCertificateValidationCallback :
-                    (_socketsHttpHandler.SslOptions.RemoteCertificateValidationCallback?.Target as ConnectHelper.CertificateCallbackMapper)?.FromHttpClientHandler;
+                    (_socketsHttpHandler.SslOptions.RemoteCertificateValidationCallback?.Target as CertificateCallbackMapper)?.FromHttpClientHandler;
             }
             set
             {
@@ -398,7 +398,7 @@ namespace System.Net.Http
                 {
                     ThrowForModifiedManagedSslOptionsIfStarted();
                     _socketsHttpHandler.SslOptions.RemoteCertificateValidationCallback = value != null ?
-                        new ConnectHelper.CertificateCallbackMapper(value).ForSocketsHttpHandler :
+                        new CertificateCallbackMapper(value).ForSocketsHttpHandler :
                         null;
                 }
             }

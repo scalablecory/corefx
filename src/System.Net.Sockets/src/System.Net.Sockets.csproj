@@ -111,6 +111,17 @@
     <Compile Include="$(CommonPath)\System\Net\Sockets\SocketType.cs">
       <Link>Common\System\Net\Sockets\SocketType.cs</Link>
     </Compile>
+    <Compile Include="System\Net\Connections\NetworkStreamWithSocket.cs" />
+    <Compile Include="System\Net\Connections\SocketConnection.cs" />
+    <Compile Include="System\Net\Connections\SocketsConnectionFactory.cs" />
+    <Compile Include="System\Net\Connections\SocketsConnectionListenerFactory.cs" />
+    <Compile Include="System\Net\Connections\TaskSocketAsyncEventArgs.cs" />
+    <Compile Include="$(CommonPath)\CoreLib\System\Collections\Concurrent\ConcurrentQueueSegment.cs">
+      <Link>Common\CoreLib\System\Collections\Concurrent\ConcurrentQueueSegment.cs</Link>
+    </Compile>
+    <Compile Include="$(CommonPath)\CoreLib\Internal\Padding.cs">
+      <Link>Common\CoreLib\Internal\Padding.cs</Link>
+    </Compile>
   </ItemGroup>
   <ItemGroup Condition=" '$(TargetsWindows)' == 'true'">
     <!-- Windows: CoreCLR -->

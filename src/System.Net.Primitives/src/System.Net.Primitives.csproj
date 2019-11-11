@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <AssemblyName>System.Net.Primitives</AssemblyName>
     <OutputType>Library</OutputType>
@@ -110,6 +110,12 @@
     <Compile Include="$(CommonPath)\Interop\Windows\WinSock\Interop.ErrorCodes.cs">
       <Link>Common\Interop\Windows\WinSock\Interop.ErrorCodes.cs</Link>
     </Compile>
+    <Compile Include="System\Net\Connections\IConnection.cs" />
+    <Compile Include="System\Net\Connections\IConnectionFactory.cs" />
+    <Compile Include="System\Net\Connections\IConnectionListener.cs" />
+    <Compile Include="System\Net\Connections\IConnectionListenerFactory.cs" />
+    <Compile Include="System\Net\Connections\IConnectionProperties.cs" />
+    <Compile Include="System\Net\Connections\IConnectionStream.cs" />
   </ItemGroup>
   <ItemGroup Condition=" '$(TargetsWindows)' == 'true'">
     <Compile Include="System\Net\SocketException.Windows.cs" />

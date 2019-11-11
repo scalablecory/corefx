@@ -46,6 +46,8 @@ namespace System.Net.Http
 
         internal SslClientAuthenticationOptions _sslOptions;
 
+        internal System.Net.Connections.IConnectionFactory _connectionFactory;
+
         internal IDictionary<string, object> _properties;
 
         public HttpConnectionSettings()
@@ -88,6 +90,7 @@ namespace System.Net.Http
                 _useCookies = _useCookies,
                 _useProxy = _useProxy,
                 _allowUnencryptedHttp2 = _allowUnencryptedHttp2,
+                _connectionFactory = _connectionFactory
             };
         }
 

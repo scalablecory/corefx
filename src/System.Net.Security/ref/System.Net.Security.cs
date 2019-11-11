@@ -5,6 +5,38 @@
 // Changes to this file must follow the http://aka.ms/api-review process.
 // ------------------------------------------------------------------------------
 
+namespace System.Net.Connections
+{
+    [System.CLSCompliantAttribute(false)]
+    public partial interface ISslConnectionProperties
+    {
+        System.Security.Authentication.CipherAlgorithmType CipherAlgorithm { get; }
+        int CipherStrength { get; }
+        System.Security.Authentication.HashAlgorithmType HashAlgorithm { get; }
+        int HashStrength { get; }
+        System.Security.Authentication.ExchangeAlgorithmType KeyExchangeAlgorithm { get; }
+        int KeyExchangeStrength { get; }
+        System.Security.Cryptography.X509Certificates.X509Certificate LocalCertificate { get; }
+        System.Net.Security.SslApplicationProtocol NegotiatedApplicationProtocol { get; }
+        System.Net.Security.TlsCipherSuite NegotiatedCipherSuite { get; }
+        System.Security.Cryptography.X509Certificates.X509Certificate RemoteCertificate { get; }
+        System.Security.Authentication.SslProtocols SslProtocol { get; }
+        System.Net.TransportContext TransportContext { get; }
+    }
+    public partial class SslConnectionFactory : System.IAsyncDisposable, System.Net.Connections.IConnectionFactory
+    {
+        protected System.Net.Connections.IConnectionFactory BaseFactory { get; }
+        public SslConnectionFactory(System.Net.Connections.IConnectionFactory baseFactory, bool skipIfTls = false) { }
+        public virtual System.Threading.Tasks.ValueTask<System.Net.Connections.IConnection> ConnectAsync(System.Net.EndPoint endPoint, System.Net.Connections.IConnectionProperties options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) { throw null; }
+        public System.Threading.Tasks.ValueTask DisposeAsync() { throw null; }
+    }
+    public sealed partial class SslConnectionListenerFactory : System.IAsyncDisposable, System.Net.Connections.IConnectionListenerFactory
+    {
+        public SslConnectionListenerFactory(System.Net.Connections.IConnectionListenerFactory baseFactory, bool skipIfTls = false) { }
+        public System.Threading.Tasks.ValueTask<System.Net.Connections.IConnectionListener> BindAsync(System.Net.EndPoint endPoint, System.Net.Connections.IConnectionProperties options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) { throw null; }
+        public System.Threading.Tasks.ValueTask DisposeAsync() { throw null; }
+    }
+}
 namespace System.Net.Security
 {
     public abstract partial class AuthenticatedStream : System.IO.Stream
@@ -147,7 +179,7 @@ namespace System.Net.Security
         public System.Security.Cryptography.X509Certificates.X509Certificate ServerCertificate { get { throw null; } set { } }
         public System.Net.Security.ServerCertificateSelectionCallback ServerCertificateSelectionCallback { get { throw null; } set { } }
     }
-    public partial class SslStream : System.Net.Security.AuthenticatedStream
+    public partial class SslStream : System.Net.Security.AuthenticatedStream, System.Net.Connections.ISslConnectionProperties
     {
         public SslStream(System.IO.Stream innerStream) : base (default(System.IO.Stream), default(bool)) { }
         public SslStream(System.IO.Stream innerStream, bool leaveInnerStreamOpen) : base (default(System.IO.Stream), default(bool)) { }

@@ -334,6 +334,38 @@ namespace System.Net.Cache
         public override string ToString() { throw null; }
     }
 }
+namespace System.Net.Connections
+{
+    public partial interface IConnection : System.IAsyncDisposable, System.Net.Connections.IConnectionStream
+    {
+        System.Net.EndPoint LocalEndPoint { get; }
+        System.Net.EndPoint RemoteEndPoint { get; }
+    }
+    public partial interface IConnectionFactory : System.IAsyncDisposable
+    {
+        System.Threading.Tasks.ValueTask<System.Net.Connections.IConnection> ConnectAsync(System.Net.EndPoint endPoint, System.Net.Connections.IConnectionProperties options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+    }
+    public partial interface IConnectionListener : System.IAsyncDisposable
+    {
+        System.Threading.Tasks.ValueTask<System.Net.Connections.IConnection> AcceptAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+    }
+    public partial interface IConnectionListenerFactory : System.IAsyncDisposable
+    {
+        System.Threading.Tasks.ValueTask<System.Net.Connections.IConnectionListener> BindAsync(System.Net.EndPoint endPoint, System.Net.Connections.IConnectionProperties options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+    }
+    public partial interface IConnectionProperties
+    {
+        bool TryGet(System.Type propertyType, out object property);
+        bool TryGet<TProperty>(out TProperty property) { throw null; }
+    }
+    public partial interface IConnectionStream : System.IAsyncDisposable
+    {
+        System.Net.Connections.IConnectionProperties ConnectionProperties { get; }
+        System.IO.Stream Stream { get; }
+        void CompleteRead();
+        void CompleteWrite();
+    }
+}
 namespace System.Net.NetworkInformation
 {
     public partial class IPAddressCollection : System.Collections.Generic.ICollection<System.Net.IPAddress>, System.Collections.Generic.IEnumerable<System.Net.IPAddress>, System.Collections.IEnumerable
